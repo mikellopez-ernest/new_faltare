@@ -1,0 +1,17 @@
+.DS_Store
+*.log
+
+# Local clasp/script identity files.
+.clasp.json
+.clasprc.json
+
+# Dependencies and generated artifacts.
+node_modules/
+tmp/
+__pycache__/
+
+# Local editor/runtime files.
+.env
+.env.*
+.vscode/
+.idea/

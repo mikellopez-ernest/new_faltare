@@ -1,0 +1,1477 @@
+<!doctype html>
+<html lang="ca-ES">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #1f2933;
+      --muted: #64748b;
+      --line: #d7dde5;
+      --accent: #1d4ed8;
+      --accent-dark: #163fa8;
+      --danger: #b91c1c;
+      --success: #047857;
+      --soft: #eef4ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    main {
+      width: min(980px, calc(100% - 28px));
+      margin: 28px auto 56px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 42px;
+      font-weight: 500;
+      line-height: 1.1;
+    }
+
+    h2 {
+      margin: 36px 0 18px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 28px;
+      font-weight: 500;
+    }
+
+    p {
+      margin: 0 0 14px;
+    }
+
+    .intro,
+    .section,
+    .message {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    }
+
+    .intro ul {
+      margin: 20px 0 0 22px;
+      padding: 0;
+    }
+
+    .required-note,
+    .required {
+      color: var(--danger);
+    }
+
+    .field {
+      margin: 26px 0;
+    }
+
+    .label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 20px;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+
+    .help {
+      margin: 0 0 10px;
+      color: var(--muted);
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      font: inherit;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    input[readonly] {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    .radio-group,
+    .checkbox-line {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .radio-option,
+    .checkbox-line label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 6px;
+      padding: 10px 18px;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button:hover {
+      background: var(--accent-dark);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .secondary {
+      background: #475569;
+    }
+
+    .secondary:hover {
+      background: #334155;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .notice {
+      margin: 16px 0;
+      border-left: 4px solid var(--accent);
+      background: var(--soft);
+      padding: 12px 14px;
+      color: #1e3a8a;
+    }
+
+    .error {
+      border-left-color: var(--danger);
+      background: #fef2f2;
+      color: var(--danger);
+    }
+
+    .success {
+      border-left-color: var(--success);
+      background: #ecfdf5;
+      color: var(--success);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      background: #fff;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 700;
+    }
+
+    td:first-child,
+    th:first-child {
+      width: 54px;
+      text-align: center;
+    }
+
+    .work-input {
+      min-height: 48px;
+    }
+
+    .no-work {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .recovery-list {
+      display: grid;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .recovery-item {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fafc;
+    }
+
+    .loading {
+      color: var(--muted);
+    }
+
+    .modal-backdrop {
+      align-items: center;
+      background: rgba(15, 23, 42, 0.45);
+      inset: 0;
+      justify-content: center;
+      padding: 18px;
+      position: fixed;
+      z-index: 20;
+    }
+
+    .modal-backdrop:not(.hidden) {
+      display: flex;
+    }
+
+    .modal {
+      background: #fff;
+      border-radius: 8px;
+      max-height: min(720px, 92vh);
+      overflow: auto;
+      padding: 22px;
+      width: min(880px, 100%);
+    }
+
+    .modal-header {
+      align-items: center;
+      display: flex;
+      gap: 14px;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+    }
+
+    .link-button {
+      background: transparent;
+      color: var(--accent);
+      padding: 0;
+      text-align: left;
+    }
+
+    .link-button:hover {
+      background: transparent;
+      color: var(--accent-dark);
+      text-decoration: underline;
+    }
+
+    .context-clamp {
+      display: -webkit-box;
+      line-clamp: 2;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .date-picker-shell {
+      position: relative;
+    }
+
+    .date-picker {
+      cursor: pointer;
+    }
+
+    .calendar-popover {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+      padding: 12px;
+      position: fixed;
+      width: min(320px, 100%);
+      z-index: 1000;
+    }
+
+    .calendar-header {
+      align-items: center;
+      display: flex;
+      font-weight: 700;
+      gap: 8px;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .calendar-header button,
+    .calendar-day {
+      align-items: center;
+      border-radius: 6px;
+      display: inline-flex;
+      height: 36px;
+      justify-content: center;
+      padding: 0;
+      width: 36px;
+    }
+
+    .calendar-header button {
+      background: #e2e8f0;
+      color: var(--ink);
+    }
+
+    .calendar-grid {
+      display: grid;
+      gap: 4px;
+      grid-template-columns: repeat(7, 1fr);
+      text-align: center;
+    }
+
+    .calendar-weekday {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .calendar-day {
+      background: #fff;
+      border: 0;
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    .calendar-day:hover {
+      background: var(--soft);
+      color: var(--accent);
+    }
+
+    .calendar-day.selected {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .calendar-empty {
+      height: 36px;
+      width: 36px;
+    }
+
+    @media (max-width: 720px) {
+      main {
+        width: min(100% - 18px, 980px);
+        margin-top: 12px;
+      }
+
+      h1 {
+        font-size: 34px;
+      }
+
+      .intro,
+      .section,
+      .message {
+        padding: 18px;
+      }
+
+      .recovery-item {
+        grid-template-columns: 1fr;
+      }
+
+      th:nth-child(3),
+      td:nth-child(3) {
+        min-width: 180px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div id="introBlock" class="intro">
+      <h1>Avís de guàrdies</h1>
+      <p>Amb aquest formulari s'intenta simplificar la gestió de qualsevol alteració de l'horari normal del professorat. Substituexi l'antic "Faltaré" i "He faltat". Un cop contesteu el formulari, rebreu un correu que heu de guardar com a referència. En aquell correu apareixerà un enllaç on podreu justificar aquella absència. <strong>No es poden justificar absències sense haver-les comunicat prèviament.</strong></p>
+      <p>IMPORTANT. Si és la 1a vegada que accediu a aquest formulari, llegiu amb atenció les següents informacions:</p>
+      <ul>
+        <li><a href="#" target="_blank" rel="noopener">Enllaç</a> sindical sobre <strong>absències al centre de treball</strong> per motius de salut (actualitzat 2023).</li>
+        <li>Contestar aquest formulari <strong>equival</strong> al pdf <strong>"Declaració responsable de justificació d'absència</strong> per motius de salut o visita mèdica".</li>
+        <li>DOCUMENTS JUSTIFICATIUS. Per evitar malentesos tota falta ha d'anar acompanyada del justificant corresponent.</li>
+        <li>En cas d'haver demanat permís o llicència, cal indicar-ho a OBSERVACIONS. En aquests casos el document justificatiu és el pdf o la captura de pantalla que mostri l'atorgament del permís o llicència.</li>
+        <li>L'acompanyament a sortides del centre no necessita justificació.</li>
+      </ul>
+      <p class="required-note">* Indica que la pregunta és obligatòria</p>
+    </div>
+
+    <form id="attendanceForm">
+      <section id="firstScreen" class="section">
+        <div class="field">
+          <label class="label" for="signedInEmail">Adreça electrònica <span class="required">*</span></label>
+          <input id="signedInEmail" name="signedInEmail" type="email" readonly>
+          <p id="emailWarning" class="help hidden">No s'ha pogut detectar automàticament l'adreça del compte. El formulari continua disponible perquè l'accés ja està limitat al domini del centre.</p>
+        </div>
+
+        <div class="field">
+          <label class="label" for="teacherEmail">Absència de <span class="required">*</span></label>
+          <select id="teacherEmail" name="teacherEmail" required>
+            <option value="">Selecciona</option>
+          </select>
+        </div>
+
+        <div id="firstScreenMessage" class="notice hidden"></div>
+
+        <div class="field">
+          <span class="label">Què vols fer? <span class="required">*</span></span>
+          <div class="radio-group" id="actionGroup">
+            <label class="radio-option"><input type="radio" name="action" value="Avisar que genero guàrdia"> <span>Avisar que genero guàrdia</span></label>
+            <label class="radio-option"><input type="radio" name="action" value="Actualitzar una guàrdia ja generada"> <span>Actualitzar una guàrdia ja generada</span></label>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" id="nextButton">Next</button>
+        </div>
+      </section>
+
+      <section id="createNoticeScreen" class="section hidden">
+        <h2>AVÍS DE GENERACIÓ DE GUÀRDIES</h2>
+
+        <div id="branchNotice" class="notice hidden"></div>
+
+        <div class="field">
+          <span class="label">Professor acompanyant? <span class="required">*</span></span>
+          <p class="help">Si és una sortida amb alumnes, no caldrà fer després la justificació. Té el tractament d'un avís que cal tenir en compte per cobrir guàrdies, res més.</p>
+          <div class="radio-group">
+            <label class="radio-option"><input type="radio" name="professorAcompanyant" value="Sí"> <span>Sí</span></label>
+            <label class="radio-option"><input type="radio" name="professorAcompanyant" value="No" checked> <span>No</span></label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="label" for="absenceDate">Data prevista de l'absència <span class="required">*</span></label>
+          <div class="date-picker-shell">
+            <input id="absenceDate" class="date-picker" name="absenceDate" type="text" inputmode="none" autocomplete="off" placeholder="aaaa-mm-dd" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="label">Absència de més d'un dia? <span class="required">*</span></span>
+          <div class="radio-group">
+            <label class="radio-option"><input type="radio" name="multiDay" value="Sí"> <span>Sí</span></label>
+            <label class="radio-option"><input type="radio" name="multiDay" value="No" checked> <span>No</span></label>
+          </div>
+        </div>
+
+        <div id="singleDaySchedule" class="field hidden">
+          <span class="label">Horari del professorat</span>
+          <div id="scheduleMessage" class="notice hidden"></div>
+          <div id="scheduleTableWrap"></div>
+        </div>
+
+        <div id="multiDayReincorporation" class="field hidden">
+          <label class="label" for="reincorporationDate">Data de reincorporació <span class="required">*</span></label>
+          <div class="date-picker-shell">
+            <input id="reincorporationDate" class="date-picker" name="reincorporationDate" type="text" inputmode="none" autocomplete="off" placeholder="aaaa-mm-dd">
+          </div>
+          <label class="label" for="multiDayStudentWork">Feina per l'alumnat</label>
+          <textarea id="multiDayStudentWork" name="multiDayStudentWork" placeholder="Feina per l'alumnat"></textarea>
+        </div>
+
+        <div class="field">
+          <label class="label" for="motiu">Motiu <span class="required">*</span></label>
+          <select id="motiu" name="motiu" required>
+            <option value="">Selecciona</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="context">Context <span class="required">*</span></label>
+          <p class="help">Indiqueu el context de l'absència. Recordeu que aquest context és confidencial i només visible per a membres de l'equip directiu. Si no es vol, no cal especificar els motius de salut.</p>
+          <textarea id="context" name="context" required></textarea>
+        </div>
+
+        <div id="hoursBlock" class="field hidden">
+          <label class="label" for="hores">Hores <span class="required">*</span></label>
+          <p class="help">Nombre d'hores què es faltarà: s'inclouen lectives i no lectives. No cal notificar les hores del dimarts per la tarda en cas de no poder anar a les reunions.</p>
+          <input id="hores" name="hores" type="number" min="1" step="1">
+        </div>
+
+        <div id="recoveryBlock" class="field hidden">
+          <label class="label" for="horesARecuperar">Hores a recuperar <span class="required">*</span></label>
+          <p class="help">Nombre d'hores què es faltarà: s'inclouen lectives i no lectives. No cal notificar les hores del dimarts per la tarda en cas de no poder anar a les reunions</p>
+          <input id="horesARecuperar" name="horesARecuperar" type="number" min="1" step="1">
+          <div id="recoveryControls" class="recovery-list"></div>
+        </div>
+
+        <div id="permisLlicenciaAbsenciaBlock" class="field">
+          <label class="label" for="permisLlicenciaAbsencia">Permís, llicència o absència ordinària <span class="required">*</span></label>
+          <p class="help">Cal indicar si s'ha demanat permís o llicència per ATRI. Qualsevol altra absència es considera "Absència ordinària".</p>
+          <select id="permisLlicenciaAbsencia" name="permisLlicenciaAbsencia" required>
+            <option value="">Selecciona</option>
+            <option value="He demanat permís/llicència a ATRI i ha estat aprovat (o ho estarà en breu)">He demanat permís/llicència a ATRI i ha estat aprovat (o ho estarà en breu)</option>
+            <option value="Absència ordinària">Absència ordinària</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="documentFile">Document justificatiu</label>
+          <p class="help">IMPORTANT. En cas de llicència o permís demanat per ATRI, el document justificatiu és el pdf o captura de pantalla amb l'acceptació del permis o llicència.</p>
+          <input id="documentFile" name="documentFile" type="file">
+        </div>
+
+        <div class="field">
+          <span class="label">Confirmació <span class="required">*</span></span>
+          <p class="help">Recordem que un cop enviat el "Faltaré" rebreu un avís al vostre correu electrònic. Hi trobareu un enllaç per a) modificar les dades d'aquest "Faltaré"; b) confirmar-lo posteriorment amb el justificant</p>
+          <div class="checkbox-line">
+            <label><input id="confirmationOk" name="confirmationOk" type="checkbox" value="OK"> <span>OK</span></label>
+          </div>
+        </div>
+
+        <div id="submitMessage" class="notice hidden"></div>
+
+        <div class="actions">
+          <button type="button" class="secondary" id="backButton">Torna</button>
+          <button type="submit" id="submitButton">Envia</button>
+        </div>
+      </section>
+    </form>
+
+    <div id="updateModal" class="modal-backdrop hidden">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>Guàrdies generades</h2>
+          <button type="button" class="secondary" id="closeUpdateModal">Tanca</button>
+        </div>
+        <div id="updateModalMessage" class="notice hidden"></div>
+        <div id="updateRowsWrap"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const ACTION_CREATE = 'Avisar que genero guàrdia';
+    const ACTION_UPDATE = 'Actualitzar una guàrdia ja generada';
+    const HOUR_OPTIONS = [
+      '08:00',
+      '09:00',
+      '10:00',
+      '11:30',
+      '12:30',
+      '13:30',
+      '15:00',
+      '16:00',
+      '17:00',
+      '18:30',
+      '19:30',
+      '20:30',
+    ];
+
+    const state = {
+      bootstrap: null,
+      editRowId: '',
+      pendingEditData: null,
+      pendingSelectedScheduleItems: null,
+      scheduleItems: [],
+      scheduleCount: 0,
+      teacherByEmail: {},
+    };
+
+    const el = {
+      form: document.getElementById('attendanceForm'),
+      firstScreen: document.getElementById('firstScreen'),
+      createNoticeScreen: document.getElementById('createNoticeScreen'),
+      introBlock: document.getElementById('introBlock'),
+      signedInEmail: document.getElementById('signedInEmail'),
+      teacherEmail: document.getElementById('teacherEmail'),
+      actionGroup: document.getElementById('actionGroup'),
+      nextButton: document.getElementById('nextButton'),
+      backButton: document.getElementById('backButton'),
+      absenceDate: document.getElementById('absenceDate'),
+      singleDaySchedule: document.getElementById('singleDaySchedule'),
+      scheduleMessage: document.getElementById('scheduleMessage'),
+      scheduleTableWrap: document.getElementById('scheduleTableWrap'),
+      multiDayReincorporation: document.getElementById('multiDayReincorporation'),
+      reincorporationDate: document.getElementById('reincorporationDate'),
+      multiDayStudentWork: document.getElementById('multiDayStudentWork'),
+      motiu: document.getElementById('motiu'),
+      hoursBlock: document.getElementById('hoursBlock'),
+      recoveryBlock: document.getElementById('recoveryBlock'),
+      hores: document.getElementById('hores'),
+      horesARecuperar: document.getElementById('horesARecuperar'),
+      recoveryControls: document.getElementById('recoveryControls'),
+      permisLlicenciaAbsenciaBlock: document.getElementById('permisLlicenciaAbsenciaBlock'),
+      permisLlicenciaAbsencia: document.getElementById('permisLlicenciaAbsencia'),
+      documentFile: document.getElementById('documentFile'),
+      submitButton: document.getElementById('submitButton'),
+      submitMessage: document.getElementById('submitMessage'),
+      branchNotice: document.getElementById('branchNotice'),
+      firstScreenMessage: document.getElementById('firstScreenMessage'),
+      updateModal: document.getElementById('updateModal'),
+      updateRowsWrap: document.getElementById('updateRowsWrap'),
+      updateModalMessage: document.getElementById('updateModalMessage'),
+      closeUpdateModal: document.getElementById('closeUpdateModal'),
+    };
+
+    init();
+
+    function init() {
+      bindEvents();
+      initDatePickers(document);
+      setInitialLoadingState();
+      loadBootstrapData();
+    }
+
+    function setInitialLoadingState() {
+      el.signedInEmail.value = 'Carregant compte...';
+      el.teacherEmail.disabled = true;
+      el.nextButton.disabled = true;
+      setSelectPlaceholder(el.teacherEmail, 'Carregant professorat...');
+    }
+
+    function loadBootstrapData() {
+      google.script.run
+        .withSuccessHandler((bootstrap) => {
+          state.bootstrap = bootstrap;
+          clearMessage(el.firstScreenMessage);
+          el.signedInEmail.value = bootstrap.user.email || 'Compte del centre no detectat per Apps Script';
+          document.getElementById('emailWarning').classList.toggle('hidden', Boolean(bootstrap.user.email));
+          el.absenceDate.value = bootstrap.today;
+          renderTeachers(bootstrap.teachers || []);
+          renderReasons(bootstrap.reasons || []);
+          el.teacherEmail.disabled = false;
+          el.nextButton.disabled = false;
+        })
+        .withFailureHandler((error) => {
+          el.signedInEmail.value = 'No disponible';
+          setSelectPlaceholder(el.teacherEmail, 'No s\'ha pogut carregar el professorat');
+          el.nextButton.disabled = true;
+          showMessage(el.firstScreenMessage, error.message || String(error), 'error');
+        })
+        .getClientBootstrapData();
+    }
+
+    function renderTeachers(teachers) {
+      clearSelect(el.teacherEmail, 'Selecciona');
+      state.teacherByEmail = {};
+
+      teachers.forEach((teacher) => {
+        state.teacherByEmail[teacher.email] = teacher;
+        const option = document.createElement('option');
+        option.value = teacher.email;
+        option.textContent = teacher.name;
+        el.teacherEmail.appendChild(option);
+      });
+    }
+
+    function renderReasons(reasons) {
+      clearSelect(el.motiu, 'Selecciona');
+
+      reasons.forEach((reason) => {
+        const option = document.createElement('option');
+        option.value = reason.value;
+        option.textContent = reason.value;
+        option.dataset.route = reason.route;
+        el.motiu.appendChild(option);
+      });
+    }
+
+    function clearSelect(select, placeholder) {
+      select.innerHTML = '';
+      setSelectPlaceholder(select, placeholder);
+    }
+
+    function setSelectPlaceholder(select, placeholder) {
+      select.innerHTML = '';
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = placeholder;
+      select.appendChild(option);
+    }
+
+    function bindEvents() {
+      el.nextButton.addEventListener('click', handleNext);
+      el.backButton.addEventListener('click', handleBack);
+      el.teacherEmail.addEventListener('change', refreshScheduleIfNeeded);
+      el.absenceDate.addEventListener('change', refreshScheduleIfNeeded);
+      el.motiu.addEventListener('change', updateReasonRoute);
+      el.horesARecuperar.addEventListener('input', renderRecoveryControls);
+      el.closeUpdateModal.addEventListener('click', closeUpdateModal);
+      el.form.addEventListener('change', (event) => {
+        if (event.target.name === 'multiDay') {
+          updateMultiDayMode();
+        }
+      });
+      el.form.addEventListener('submit', handleSubmit);
+      document.addEventListener('click', (event) => {
+        if (!event.target.closest('.date-picker-shell') && !event.target.closest('.calendar-popover')) {
+          closeCalendars();
+        }
+      });
+    }
+
+    function initDatePickers(root) {
+      root.querySelectorAll('.date-picker').forEach((input) => {
+        if (input.dataset.datePickerReady) {
+          return;
+        }
+
+        input.dataset.datePickerReady = 'true';
+        input.addEventListener('focus', () => showCalendar(input));
+        input.addEventListener('click', () => showCalendar(input));
+      });
+    }
+
+    function showCalendar(input) {
+      closeCalendars();
+
+      const selected = parseIsoDate(input.value) || parseIsoDate(state.bootstrap && state.bootstrap.today) || new Date();
+      const view = new Date(selected.getFullYear(), selected.getMonth(), 1);
+      const popover = document.createElement('div');
+      popover.className = 'calendar-popover';
+      document.body.appendChild(popover);
+      positionCalendar(popover, input);
+
+      renderCalendar(popover, input, view);
+    }
+
+    function positionCalendar(popover, input) {
+      const rect = input.getBoundingClientRect();
+      const width = Math.min(320, Math.max(rect.width, 260));
+      const left = Math.min(Math.max(12, rect.left), window.innerWidth - width - 12);
+      const top = Math.min(rect.bottom + 6, window.innerHeight - 360);
+
+      popover.style.left = `${left}px`;
+      popover.style.top = `${Math.max(12, top)}px`;
+      popover.style.width = `${width}px`;
+    }
+
+    function renderCalendar(popover, input, viewDate) {
+      const monthLabel = viewDate.toLocaleDateString('ca-ES', { month: 'long', year: 'numeric' });
+      const selectedIso = input.value;
+      const firstDayOffset = (new Date(viewDate.getFullYear(), viewDate.getMonth(), 1).getDay() + 6) % 7;
+      const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
+      const cells = [];
+
+      for (let i = 0; i < firstDayOffset; i += 1) {
+        cells.push('<span class="calendar-empty"></span>');
+      }
+
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const iso = formatIsoDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), day));
+        cells.push(`
+          <button type="button" class="calendar-day ${iso === selectedIso ? 'selected' : ''}" data-date="${iso}">
+            ${day}
+          </button>
+        `);
+      }
+
+      popover.innerHTML = `
+        <div class="calendar-header">
+          <button type="button" data-calendar-nav="-1" aria-label="Mes anterior">&lt;</button>
+          <span>${escapeHtml(monthLabel)}</span>
+          <button type="button" data-calendar-nav="1" aria-label="Mes següent">&gt;</button>
+        </div>
+        <div class="calendar-grid">
+          ${['Dl', 'Dt', 'Dc', 'Dj', 'Dv', 'Ds', 'Dg'].map((day) => `<span class="calendar-weekday">${day}</span>`).join('')}
+          ${cells.join('')}
+        </div>
+      `;
+
+      popover.querySelectorAll('[data-calendar-nav]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const delta = Number(button.dataset.calendarNav);
+          renderCalendar(popover, input, new Date(viewDate.getFullYear(), viewDate.getMonth() + delta, 1));
+        });
+      });
+
+      popover.querySelectorAll('.calendar-day').forEach((button) => {
+        button.addEventListener('click', () => {
+          input.value = button.dataset.date;
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          closeCalendars();
+        });
+      });
+    }
+
+    function closeCalendars() {
+      document.querySelectorAll('.calendar-popover').forEach((calendar) => calendar.remove());
+    }
+
+    function parseIsoDate(value) {
+      const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+      if (!match) {
+        return null;
+      }
+
+      const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function formatIsoDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function handleNext() {
+      const action = getRadioValue('action');
+      clearMessage(el.branchNotice);
+      clearMessage(el.firstScreenMessage);
+
+      if (!el.teacherEmail.value) {
+        showMessage(el.firstScreenMessage, 'Cal seleccionar el professor o professora.', 'error');
+        return;
+      }
+
+      if (!action) {
+        showMessage(el.firstScreenMessage, 'Cal seleccionar què vols fer.', 'error');
+        return;
+      }
+
+      if (action !== ACTION_CREATE) {
+        if (action === ACTION_UPDATE) {
+          openUpdateModal();
+          return;
+        }
+
+        showMessage(el.firstScreenMessage, 'Aquesta opció encara no està implementada.', 'error');
+        return;
+      }
+
+      state.editRowId = '';
+      state.pendingEditData = null;
+      state.pendingSelectedScheduleItems = null;
+      el.firstScreen.classList.add('hidden');
+      el.introBlock.classList.add('hidden');
+      el.createNoticeScreen.classList.remove('hidden');
+      updateMultiDayMode();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function handleBack() {
+      el.createNoticeScreen.classList.add('hidden');
+      el.introBlock.classList.remove('hidden');
+      el.firstScreen.classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updateMultiDayMode() {
+      const multiDay = getRadioValue('multiDay');
+      el.singleDaySchedule.classList.toggle('hidden', multiDay !== 'No');
+      el.multiDayReincorporation.classList.toggle('hidden', multiDay !== 'Sí');
+
+      if (multiDay === 'No') {
+        refreshScheduleIfNeeded();
+      } else {
+        state.scheduleItems = [];
+        el.scheduleTableWrap.innerHTML = '';
+        clearMessage(el.scheduleMessage);
+        refreshScheduleCountOnly();
+      }
+    }
+
+    function openUpdateModal() {
+      clearMessage(el.firstScreenMessage);
+      clearMessage(el.updateModalMessage);
+
+      if (!el.teacherEmail.value) {
+        showMessage(el.firstScreenMessage, 'Cal seleccionar el professor o professora.', 'error');
+        return;
+      }
+
+      el.updateRowsWrap.innerHTML = '';
+      el.updateModal.classList.remove('hidden');
+      showMessage(el.updateModalMessage, 'Carregant guàrdies...', 'loading');
+
+      google.script.run
+        .withSuccessHandler(renderUpdateRows)
+        .withFailureHandler((error) => {
+          showMessage(el.updateModalMessage, error.message || String(error), 'error');
+        })
+        .getSubmissionsForTeacher(el.teacherEmail.value);
+    }
+
+    function closeUpdateModal() {
+      el.updateModal.classList.add('hidden');
+    }
+
+    function renderUpdateRows(rows) {
+      if (!rows.length) {
+        el.updateRowsWrap.innerHTML = '';
+        showMessage(el.updateModalMessage, 'No hi ha cap guàrdia generada per aquest professor/a.', 'error');
+        return;
+      }
+
+      clearMessage(el.updateModalMessage);
+      el.updateRowsWrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Creació</th>
+              <th>Absència</th>
+              <th>Context</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((row) => `
+              <tr>
+                <td>${escapeHtml(row.createdAt || '')}</td>
+                <td>${escapeHtml(row.absenceDate || '')}</td>
+                <td>
+                  <button type="button" class="link-button update-row-link" data-row-id="${row.rowId}">
+                    <span class="context-clamp">${escapeHtml(row.context || '')}</span>
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      document.querySelectorAll('.update-row-link').forEach((button) => {
+        button.addEventListener('click', () => loadSubmissionForEdit(button.dataset.rowId));
+      });
+    }
+
+    function loadSubmissionForEdit(rowId) {
+      showMessage(el.updateModalMessage, 'Carregant registre...', 'loading');
+
+      google.script.run
+        .withSuccessHandler((data) => {
+          closeUpdateModal();
+          populateFormForEdit(data);
+        })
+        .withFailureHandler((error) => {
+          showMessage(el.updateModalMessage, error.message || String(error), 'error');
+        })
+        .getSubmissionForEdit(rowId);
+    }
+
+    function populateFormForEdit(data) {
+      state.editRowId = data.editRowId;
+      state.pendingEditData = data;
+      state.pendingSelectedScheduleItems = data.selectedScheduleItems || [];
+
+      el.teacherEmail.value = data.teacherEmail || el.teacherEmail.value;
+      setRadioValue('action', ACTION_UPDATE);
+      setRadioValue('professorAcompanyant', data.professorAcompanyant || 'No');
+      el.absenceDate.value = data.absenceDate || el.absenceDate.value;
+      setRadioValue('multiDay', data.multiDay || 'No');
+      el.reincorporationDate.value = data.reincorporationDate || '';
+      el.multiDayStudentWork.value = data.multiDayStudentWork || '';
+      el.motiu.value = data.motiu || '';
+      document.getElementById('context').value = data.context || '';
+      el.hores.value = data.hores || '';
+      el.horesARecuperar.value = data.horesARecuperar || '';
+      document.getElementById('permisLlicenciaAbsencia').value = data.permisLlicenciaAbsencia || '';
+      document.getElementById('confirmationOk').checked = Boolean(data.confirmationOk);
+
+      updateReasonRoute();
+      updateMultiDayMode();
+      renderStoredScheduleIfNeeded();
+
+      if ((data.recoveryItems || []).length) {
+        el.horesARecuperar.value = data.recoveryItems.length;
+        renderRecoveryControls();
+        data.recoveryItems.forEach((item, index) => {
+          const dateInput = document.querySelector(`.recovery-date[data-index="${index}"]`);
+          const timeInput = document.querySelector(`.recovery-time[data-index="${index}"]`);
+
+          if (dateInput) {
+            dateInput.value = item.date || '';
+          }
+
+          if (timeInput) {
+            timeInput.value = item.time || '';
+          }
+        });
+      }
+
+      el.firstScreen.classList.add('hidden');
+      el.introBlock.classList.add('hidden');
+      el.createNoticeScreen.classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function refreshScheduleIfNeeded() {
+      if (el.createNoticeScreen.classList.contains('hidden') || getRadioValue('multiDay') !== 'No') {
+        return;
+      }
+
+      const teacherEmail = el.teacherEmail.value;
+      const absenceDate = el.absenceDate.value;
+
+      if (!teacherEmail || !absenceDate) {
+        return;
+      }
+
+      el.scheduleTableWrap.innerHTML = '';
+      showMessage(el.scheduleMessage, 'Carregant horari...', 'loading');
+
+      google.script.run
+        .withSuccessHandler(renderSchedule)
+        .withFailureHandler((error) => {
+          if (renderStoredScheduleIfNeeded(error.message || String(error))) {
+            return;
+          }
+
+          clearScheduleSelection();
+          showMessage(el.scheduleMessage, error.message || String(error), 'error');
+        })
+        .getScheduleForTeacher({ teacherEmail, absenceDate });
+    }
+
+    function refreshScheduleCountOnly() {
+      const teacherEmail = el.teacherEmail.value;
+      const absenceDate = el.absenceDate.value;
+
+      if (!teacherEmail || !absenceDate) {
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler((result) => {
+          state.scheduleCount = (result.items || []).filter(shouldCheckScheduleByDefault).length;
+          applyAutoHourDefaults();
+        })
+        .withFailureHandler(() => {
+          state.scheduleCount = 0;
+          applyAutoHourDefaults();
+        })
+        .getScheduleForTeacher({ teacherEmail, absenceDate });
+    }
+
+    function renderSchedule(result) {
+      state.scheduleItems = result.items || [];
+
+      if (!state.scheduleItems.length) {
+        if (renderStoredScheduleIfNeeded(result.message)) {
+          return;
+        }
+
+        clearScheduleSelection();
+        showMessage(el.scheduleMessage, result.message || 'No hi ha horari per aquesta data.', 'error');
+        return;
+      }
+
+      clearMessage(el.scheduleMessage);
+      const rows = state.scheduleItems.map((item, index) => `
+        <tr>
+          <td><input type="checkbox" class="schedule-check" data-index="${index}" ${isScheduleItemChecked(item) ? 'checked' : ''}></td>
+          <td>${escapeHtml(item.time)}</td>
+          <td>
+            <strong>${escapeHtml(item.subjectName)}</strong><br>
+            <span class="help">${escapeHtml(item.groupsText || '')}</span>
+          </td>
+          <td>${item.hasGroup
+            ? `<textarea class="work-input" data-index="${index}" placeholder="Feina per l'alumnat"></textarea>`
+            : ''}</td>
+        </tr>
+      `).join('');
+
+      el.scheduleTableWrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="scheduleSelectAll" title="Selecciona totes les classes del dia"></th>
+              <th>Hora</th>
+              <th>Assignatura</th>
+              <th>Feina</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+
+      document.getElementById('scheduleSelectAll').addEventListener('change', (event) => {
+        document.querySelectorAll('.schedule-check').forEach((checkbox) => {
+          checkbox.checked = event.target.checked;
+        });
+        updateCheckedScheduleCount();
+      });
+
+      document.getElementById('scheduleSelectAll').checked = Array.from(document.querySelectorAll('.schedule-check')).every((checkbox) => checkbox.checked);
+
+      document.querySelectorAll('.schedule-check').forEach((checkbox) => {
+        checkbox.addEventListener('change', () => {
+          const checks = Array.from(document.querySelectorAll('.schedule-check'));
+          document.getElementById('scheduleSelectAll').checked = checks.every((item) => item.checked);
+          updateCheckedScheduleCount();
+        });
+      });
+
+      applyPendingStudentWork();
+      updateCheckedScheduleCount();
+    }
+
+    function renderStoredScheduleIfNeeded(message) {
+      if (!state.pendingSelectedScheduleItems || !state.pendingSelectedScheduleItems.length || getRadioValue('multiDay') !== 'No') {
+        return false;
+      }
+
+      state.scheduleItems = state.pendingSelectedScheduleItems.map(normalizeStoredScheduleItem);
+      renderSchedule({
+        items: state.scheduleItems,
+        message: '',
+      });
+
+      showMessage(
+        el.scheduleMessage,
+        message
+          ? `S'han carregat les classes guardades del registre. Avís de l'horari actual: ${message}`
+          : 'S\'han carregat les classes guardades del registre.',
+        'loading'
+      );
+      return true;
+    }
+
+    function clearScheduleSelection() {
+      state.scheduleItems = [];
+      state.scheduleCount = 0;
+      el.scheduleTableWrap.innerHTML = '';
+      applyAutoHourDefaults();
+    }
+
+    function updateReasonRoute() {
+      const route = getSelectedReasonRoute();
+      el.hoursBlock.classList.add('hidden');
+      el.recoveryBlock.classList.toggle('hidden', route !== 'J-b');
+      el.permisLlicenciaAbsenciaBlock.classList.toggle('hidden', route === 'J-b');
+
+      if (route === 'J-b') {
+        el.permisLlicenciaAbsencia.value = 'Absència ordinària';
+      }
+
+      applyAutoHourDefaults();
+    }
+
+    function applyAutoHourDefaults() {
+      const count = Number(state.scheduleCount || 0);
+      const route = getSelectedReasonRoute();
+
+      if (route === 'J-a') {
+        el.hores.value = count > 0 ? count : '';
+      }
+
+      if (route === 'J-b') {
+        el.horesARecuperar.value = count > 0 ? count : '';
+        renderRecoveryControls();
+      }
+    }
+
+    function isScheduleItemChecked(item) {
+      if (item.savedSelected) {
+        return true;
+      }
+
+      if (!state.pendingSelectedScheduleItems) {
+        return shouldCheckScheduleByDefault(item);
+      }
+
+      return state.pendingSelectedScheduleItems.some((savedItem) => {
+        const savedIds = getScheduleRowIds(savedItem);
+        return (item.rowIds || []).some((rowId) => savedIds.includes(String(rowId)));
+      });
+    }
+
+    function updateCheckedScheduleCount() {
+      state.scheduleCount = document.querySelectorAll('.schedule-check:checked').length;
+      applyAutoHourDefaults();
+    }
+
+    function shouldCheckScheduleByDefault(item) {
+      return Boolean(item.hasGroup) || isGuardiaSubject(item);
+    }
+
+    function isGuardiaSubject(item) {
+      return normalizeText(item.subjectName) === 'guardia' || normalizeText(item.subjectCode) === 'guardia';
+    }
+
+    function normalizeText(value) {
+      return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
+    }
+
+    function getScheduleRowIds(item) {
+      if (Array.isArray(item.rowIds)) {
+        return item.rowIds.map(String);
+      }
+
+      if (item.rowId) {
+        return [String(item.rowId)];
+      }
+
+      return [];
+    }
+
+    function normalizeStoredScheduleItem(item) {
+      const rowIds = getScheduleRowIds(item);
+      const groups = Array.isArray(item.groups)
+        ? item.groups
+        : String(item.group || item.groupsText || '')
+          .split(',')
+          .map((group) => group.trim())
+          .filter(Boolean);
+
+      return {
+        ...item,
+        savedSelected: true,
+        rowIds,
+        groups,
+        groupsText: item.groupsText || groups.join(', '),
+        hasGroup: typeof item.hasGroup === 'boolean' ? item.hasGroup : groups.length > 0,
+        subjectName: item.subjectName || item.subject || item.subjectCode || '',
+        subjectCode: item.subjectCode || '',
+        time: item.time || HOUR_OPTIONS[Number(item.slot || 1) - 1] || '',
+      };
+    }
+
+    function applyPendingStudentWork() {
+      if (!state.pendingSelectedScheduleItems) {
+        return;
+      }
+
+      state.pendingSelectedScheduleItems.forEach((savedItem) => {
+        const index = state.scheduleItems.findIndex((item) => {
+          const savedIds = getScheduleRowIds(savedItem);
+          return (item.rowIds || []).some((rowId) => savedIds.includes(String(rowId)));
+        });
+
+        if (index === -1) {
+          return;
+        }
+
+        const input = document.querySelector(`.work-input[data-index="${index}"]`);
+
+        if (input) {
+          input.value = savedItem.studentWork || '';
+        }
+      });
+    }
+
+    function renderRecoveryControls() {
+      const count = Number(el.horesARecuperar.value || 0);
+
+      if (!Number.isFinite(count) || count < 1) {
+        el.recoveryControls.innerHTML = '';
+        return;
+      }
+
+      const controls = [];
+
+      for (let i = 0; i < count; i += 1) {
+        controls.push(`
+          <div class="recovery-item">
+            <label>
+              <span>Data ${i + 1}</span>
+              <span class="date-picker-shell">
+                <input type="text" class="recovery-date date-picker" data-index="${i}" inputmode="none" autocomplete="off" placeholder="aaaa-mm-dd">
+              </span>
+            </label>
+            <label>
+              <span>Hora ${i + 1}</span>
+              <select class="recovery-time" data-index="${i}">
+                <option value="">Selecciona</option>
+                ${HOUR_OPTIONS.map((time) => `<option value="${time}">${time}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+        `);
+      }
+
+      el.recoveryControls.innerHTML = controls.join('');
+      initDatePickers(el.recoveryControls);
+    }
+
+    async function handleSubmit(event) {
+      event.preventDefault();
+      clearMessage(el.submitMessage);
+
+      try {
+        const payload = await buildPayload();
+        setSubmitting(true);
+
+        google.script.run
+          .withSuccessHandler((result) => {
+            showMessage(el.submitMessage, `${result.message} Número de registre: ${result.rowNumber}.`, 'success');
+            redirectAfterSubmit();
+          })
+          .withFailureHandler((error) => {
+            showMessage(el.submitMessage, error.message || String(error), 'error');
+            setSubmitting(false);
+          })
+          .submitAttendanceForm(payload);
+      } catch (error) {
+        showMessage(el.submitMessage, error.message || String(error), 'error');
+        setSubmitting(false);
+      }
+    }
+
+    async function buildPayload() {
+      const route = getSelectedReasonRoute();
+      const documentFile = await readSelectedFile();
+
+      return {
+        editRowId: state.editRowId || '',
+        action: getRadioValue('action'),
+        teacherEmail: el.teacherEmail.value,
+        professorAcompanyant: getRadioValue('professorAcompanyant'),
+        absenceDate: el.absenceDate.value,
+        multiDay: getRadioValue('multiDay'),
+        reincorporationDate: document.getElementById('reincorporationDate').value,
+        multiDayStudentWork: el.multiDayStudentWork.value,
+        selectedScheduleItems: collectSelectedScheduleItems(),
+        motiu: el.motiu.value,
+        context: document.getElementById('context').value,
+        hores: route === 'J-a' ? el.hores.value : '',
+        horesARecuperar: route === 'J-b' ? el.horesARecuperar.value : '',
+        recoveryItems: route === 'J-b' ? collectRecoveryItems() : [],
+        permisLlicenciaAbsencia: document.getElementById('permisLlicenciaAbsencia').value,
+        confirmationOk: document.getElementById('confirmationOk').checked,
+        documentFile,
+      };
+    }
+
+    function collectSelectedScheduleItems() {
+      const selectedItems = Array.from(document.querySelectorAll('.schedule-check'))
+        .filter((checkbox) => checkbox.checked)
+        .map((checkbox) => {
+          const index = Number(checkbox.dataset.index);
+          const item = state.scheduleItems[index];
+          const workInput = document.querySelector(`.work-input[data-index="${index}"]`);
+
+          return {
+            ...item,
+            studentWork: workInput ? workInput.value : '',
+          };
+        });
+
+      if (!selectedItems.length && state.pendingSelectedScheduleItems && state.pendingSelectedScheduleItems.length) {
+        return state.pendingSelectedScheduleItems;
+      }
+
+      return selectedItems;
+    }
+
+    function collectRecoveryItems() {
+      return Array.from(document.querySelectorAll('.recovery-item')).map((item) => ({
+        date: item.querySelector('.recovery-date').value,
+        time: item.querySelector('.recovery-time').value,
+      }));
+    }
+
+    function readSelectedFile() {
+      const file = el.documentFile.files[0];
+
+      if (!file) {
+        return Promise.resolve(null);
+      }
+
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = () => {
+          const dataUrl = String(reader.result || '');
+          const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+          resolve({
+            name: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            data: base64,
+          });
+        };
+
+        reader.onerror = () => reject(new Error('No s\'ha pogut llegir el document seleccionat.'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function redirectAfterSubmit() {
+      const url = 'https://agora.xtec.cat/sesernestlluch-cunit/';
+
+      try {
+        window.top.location.replace(url);
+      } catch (error) {
+        try {
+          window.open(url, '_top');
+        } catch (innerError) {
+          window.location.href = url;
+        }
+      }
+    }
+
+    function getSelectedReasonRoute() {
+      const selected = el.motiu.options[el.motiu.selectedIndex];
+      return selected ? selected.dataset.route : '';
+    }
+
+    function getRadioValue(name) {
+      const selected = document.querySelector(`input[name="${name}"]:checked`);
+      return selected ? selected.value : '';
+    }
+
+    function setRadioValue(name, value) {
+      document.querySelectorAll(`input[name="${name}"]`).forEach((input) => {
+        input.checked = input.value === value;
+      });
+    }
+
+    function showMessage(target, message, type) {
+      target.textContent = message;
+      target.className = `notice ${type || ''}`;
+      target.classList.remove('hidden');
+    }
+
+    function clearMessage(target) {
+      target.textContent = '';
+      target.className = 'notice hidden';
+    }
+
+    function setSubmitting(isSubmitting) {
+      el.submitButton.disabled = isSubmitting;
+      el.submitButton.textContent = isSubmitting ? 'Enviant...' : 'Envia';
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value);
+    }
+  </script>
+</body>
+</html>
