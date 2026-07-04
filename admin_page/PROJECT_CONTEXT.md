@@ -10,6 +10,8 @@ This project is the `admin_page` Google Apps Script project managed with `clasp`
 - Runtime: V8
 - Time zone: `Europe/Madrid`
 
+The endpoint UI lives in `Index.html`.
+
 ## Database Architecture
 
 The app uses Google Spreadsheets as its database, but it does not store all tables in one spreadsheet.
@@ -63,6 +65,8 @@ Core constants and helpers live in `Código.js`:
 - `loadTableValues_(tableRegistry, tableName)`
 - `loadConfiguredTables_()`
 
+Admin page behavior is specified in `ADMIN_PAGE_SPEC.md`.
+
 ## Configured Tables
 
 The script currently requires these logical tables from the registry:
@@ -72,3 +76,6 @@ The script currently requires these logical tables from the registry:
 | `Dades de professors` | `Llista` |
 | `Càrrega lectiva` | `assignatures` |
 | `Horaris` | `GPU001` |
+| `Faltaré` | `form_data` |
+
+`Faltaré -> form_data` includes column AA named `managed`, used by the admin filter `Gestionades`.

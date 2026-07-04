@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="ca">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #1f2933;
+      --muted: #64748b;
+      --line: #d7dde5;
+      --accent: #1d4ed8;
+      --danger: #b91c1c;
+      --soft: #eef4ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 15px;
+      line-height: 1.4;
+    }
+
+    main {
+      width: min(1240px, calc(100% - 28px));
+      margin: 24px auto 56px;
+    }
+
+    h1 {
+      margin: 0 0 16px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 34px;
+      font-weight: 500;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+      padding: 18px;
+    }
+
+    .filters {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      margin-bottom: 14px;
+    }
+
+    .filters label,
+    .row-check {
+      align-items: center;
+      display: inline-flex;
+      gap: 8px;
+    }
+
+    .summary {
+      color: var(--muted);
+      margin: 0 0 14px;
+    }
+
+    .actions {
+      align-items: center;
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 16px;
+    }
+
+    button {
+      background: var(--accent);
+      border: 0;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      padding: 10px 18px;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .message {
+      border-left: 4px solid var(--accent);
+      background: var(--soft);
+      margin: 12px 0;
+      padding: 12px;
+    }
+
+    .error {
+      border-left-color: var(--danger);
+      color: var(--danger);
+      background: #fff1f2;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1040px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    th.sortable:hover {
+      color: var(--accent);
+    }
+
+    td:first-child,
+    th:first-child {
+      text-align: center;
+      width: 48px;
+    }
+
+    .context {
+      max-width: 360px;
+      white-space: pre-wrap;
+    }
+
+    a {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    @media (max-width: 720px) {
+      main {
+        width: min(100% - 18px, 1240px);
+        margin-top: 12px;
+      }
+
+      h1 {
+        font-size: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Gestió de Faltaré</h1>
+
+    <section class="panel">
+      <div class="filters">
+        <label>
+          <input id="managedFilter" type="checkbox">
+          <span>Gestionades</span>
+        </label>
+        <label>
+          <input id="recoverableFilter" type="checkbox" checked>
+          <span>Recuperables</span>
+        </label>
+        <label>
+          <input id="atriFilter" type="checkbox" checked>
+          <span>ATRI</span>
+        </label>
+      </div>
+
+      <p id="summary" class="summary">Carregant dades...</p>
+      <div id="message" class="message hidden"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th class="sortable" data-sort-key="absenceDate">Data absència</th>
+              <th class="sortable" data-sort-key="teacherName">Professor</th>
+              <th class="sortable" data-sort-key="context">Context</th>
+              <th class="sortable" data-sort-key="multiDay">Multiday</th>
+              <th class="sortable" data-sort-key="recoverableLabel">Recuperable?</th>
+              <th class="sortable" data-sort-key="hours">Hores</th>
+              <th class="sortable" data-sort-key="license">ATRI?</th>
+              <th class="sortable" data-sort-key="documentUrl">Document</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="actions">
+        <button type="button" id="managedButton" disabled>Gestionat</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = {
+      rows: [],
+      sortKey: '',
+      sortDirection: 'asc',
+      selectedRows: {},
+    };
+
+    const el = {
+      managedFilter: document.getElementById('managedFilter'),
+      recoverableFilter: document.getElementById('recoverableFilter'),
+      atriFilter: document.getElementById('atriFilter'),
+      summary: document.getElementById('summary'),
+      message: document.getElementById('message'),
+      tableBody: document.getElementById('tableBody'),
+      managedButton: document.getElementById('managedButton'),
+    };
+
+    init();
+
+    function init() {
+      bindEvents();
+      loadData();
+    }
+
+    function bindEvents() {
+      [el.managedFilter, el.recoverableFilter, el.atriFilter].forEach((input) => {
+        input.addEventListener('change', render);
+      });
+
+      document.querySelectorAll('th.sortable').forEach((header) => {
+        header.addEventListener('click', () => {
+          const key = header.dataset.sortKey;
+
+          if (state.sortKey === key) {
+            state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc';
+          } else {
+            state.sortKey = key;
+            state.sortDirection = 'asc';
+          }
+
+          render();
+        });
+      });
+
+      el.tableBody.addEventListener('change', (event) => {
+        if (!event.target.classList.contains('row-select')) {
+          return;
+        }
+
+        state.selectedRows[event.target.dataset.rowNumber] = event.target.checked;
+        updateActionState();
+      });
+
+      el.managedButton.addEventListener('click', markSelectedRowsManaged);
+    }
+
+    function loadData() {
+      showMessage('Carregant dades...', 'loading');
+
+      google.script.run
+        .withSuccessHandler((data) => {
+          state.rows = data.rows || [];
+          state.selectedRows = {};
+          clearMessage();
+          render();
+        })
+        .withFailureHandler((error) => {
+          state.rows = [];
+          el.summary.textContent = 'No s\'han pogut carregar les dades.';
+          showMessage(error.message || String(error), 'error');
+          render();
+        })
+        .getAdminPageData();
+    }
+
+    function render() {
+      const rows = getVisibleRows();
+
+      el.summary.textContent = `${rows.length} registres visibles de ${state.rows.length} carregats`;
+
+      if (!rows.length) {
+        el.tableBody.innerHTML = '<tr><td colspan="9">No hi ha registres amb aquests filtres.</td></tr>';
+        updateSortIndicators();
+        updateActionState();
+        return;
+      }
+
+      el.tableBody.innerHTML = rows.map((row) => `
+        <tr>
+          <td>
+            <label class="row-check">
+              <input class="row-select" type="checkbox" data-row-number="${row.rowNumber}" ${state.selectedRows[row.rowNumber] ? 'checked' : ''}>
+            </label>
+          </td>
+          <td>${escapeHtml(row.absenceDate)}</td>
+          <td>${escapeHtml(row.teacherName)}</td>
+          <td class="context">${escapeHtml(row.context)}</td>
+          <td>${escapeHtml(row.multiDay)}</td>
+          <td>${escapeHtml(row.recoverableLabel)}</td>
+          <td>${escapeHtml(row.hours)}</td>
+          <td>${escapeHtml(row.license)}</td>
+          <td>${row.documentUrl ? `<a href="${escapeAttribute(row.documentUrl)}" target="_blank" rel="noopener">Obre</a>` : ''}</td>
+        </tr>
+      `).join('');
+
+      updateSortIndicators();
+      updateActionState();
+    }
+
+    function markSelectedRowsManaged() {
+      const selectedRowNumbers = getSelectedRowNumbers();
+
+      if (!selectedRowNumbers.length) {
+        showMessage('Cal seleccionar com a mínim un registre.', 'error');
+        return;
+      }
+
+      el.managedButton.disabled = true;
+      showMessage('Marcant registres com a gestionats...', 'loading');
+
+      google.script.run
+        .withSuccessHandler((result) => {
+          selectedRowNumbers.forEach((rowNumber) => {
+            state.selectedRows[rowNumber] = false;
+            const row = state.rows.find((item) => String(item.rowNumber) === String(rowNumber));
+
+            if (row) {
+              row.managed = true;
+            }
+          });
+
+          clearMessage();
+          showMessage(`${result.updated} registres marcats com a gestionats.`, 'loading');
+          render();
+        })
+        .withFailureHandler((error) => {
+          showMessage(error.message || String(error), 'error');
+          updateActionState();
+        })
+        .markRowsManaged(selectedRowNumbers);
+    }
+
+    function getSelectedRowNumbers() {
+      return Object.keys(state.selectedRows).filter((rowNumber) => state.selectedRows[rowNumber]);
+    }
+
+    function updateActionState() {
+      el.managedButton.disabled = !getSelectedRowNumbers().length;
+    }
+
+    function getVisibleRows() {
+      const showManaged = el.managedFilter.checked;
+      const showRecoverable = el.recoverableFilter.checked;
+      const showAtri = el.atriFilter.checked;
+      let rows = state.rows.filter((row) => {
+        if (Boolean(row.managed) !== showManaged) {
+          return false;
+        }
+
+        if (!showRecoverable && row.route === 'J-b') {
+          return false;
+        }
+
+        if (!showAtri && row.route === 'J-a') {
+          return false;
+        }
+
+        return true;
+      });
+
+      if (!state.sortKey) {
+        return rows.slice().sort((a, b) => Number(a.dbOrder) - Number(b.dbOrder));
+      }
+
+      rows = rows.slice().sort((a, b) => compareValues(a[state.sortKey], b[state.sortKey]));
+      return state.sortDirection === 'desc' ? rows.reverse() : rows;
+    }
+
+    function compareValues(a, b) {
+      const numberA = Number(a);
+      const numberB = Number(b);
+
+      if (String(a).trim() !== '' && String(b).trim() !== '' && Number.isFinite(numberA) && Number.isFinite(numberB)) {
+        return numberA - numberB;
+      }
+
+      return String(a || '').localeCompare(String(b || ''), 'ca', { numeric: true, sensitivity: 'base' });
+    }
+
+    function updateSortIndicators() {
+      document.querySelectorAll('th.sortable').forEach((header) => {
+        const label = header.textContent.replace(/[ ▲▼]$/g, '');
+        const isActive = header.dataset.sortKey === state.sortKey;
+        header.textContent = isActive ? `${label} ${state.sortDirection === 'asc' ? '▲' : '▼'}` : label;
+      });
+    }
+
+    function showMessage(message, type) {
+      el.message.textContent = message;
+      el.message.classList.remove('hidden', 'error');
+
+      if (type === 'error') {
+        el.message.classList.add('error');
+      }
+    }
+
+    function clearMessage() {
+      el.message.textContent = '';
+      el.message.classList.add('hidden');
+      el.message.classList.remove('error');
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value).replace(/`/g, '&#96;');
+    }
+  </script>
+</body>
+</html>
