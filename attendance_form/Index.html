@@ -741,21 +741,40 @@
 
         input.dataset.datePickerReady = 'true';
         input.addEventListener('focus', () => showCalendar(input));
-        input.addEventListener('click', () => showCalendar(input));
+        input.addEventListener('click', (event) => {
+          event.stopPropagation();
+          showCalendar(input);
+        });
       });
     }
 
     function showCalendar(input) {
+      const openCalendar = document.querySelector('.calendar-popover');
+
+      if (openCalendar && openCalendar.dataset.inputId === getDatePickerId(input)) {
+        return;
+      }
+
       closeCalendars();
 
       const selected = parseIsoDate(input.value) || parseIsoDate(state.bootstrap && state.bootstrap.today) || new Date();
       const view = new Date(selected.getFullYear(), selected.getMonth(), 1);
       const popover = document.createElement('div');
       popover.className = 'calendar-popover';
+      popover.dataset.inputId = getDatePickerId(input);
+      popover.addEventListener('click', (event) => event.stopPropagation());
       document.body.appendChild(popover);
       positionCalendar(popover, input);
 
       renderCalendar(popover, input, view);
+    }
+
+    function getDatePickerId(input) {
+      if (!input.dataset.datePickerId) {
+        input.dataset.datePickerId = `date-picker-${Math.random().toString(36).slice(2)}`;
+      }
+
+      return input.dataset.datePickerId;
     }
 
     function positionCalendar(popover, input) {
@@ -802,14 +821,18 @@
       `;
 
       popover.querySelectorAll('[data-calendar-nav]').forEach((button) => {
-        button.addEventListener('click', () => {
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
           const delta = Number(button.dataset.calendarNav);
           renderCalendar(popover, input, new Date(viewDate.getFullYear(), viewDate.getMonth() + delta, 1));
         });
       });
 
       popover.querySelectorAll('.calendar-day').forEach((button) => {
-        button.addEventListener('click', () => {
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
           input.value = button.dataset.date;
           input.dispatchEvent(new Event('change', { bubbles: true }));
           closeCalendars();
@@ -1339,6 +1362,9 @@
     async function buildPayload() {
       const route = getSelectedReasonRoute();
       const documentFile = await readSelectedFile();
+      const recoveryItems = route === 'J-b' ? collectRecoveryItems() : [];
+
+      validateRecoveryDates(recoveryItems);
 
       return {
         editRowId: state.editRowId || '',
@@ -1354,11 +1380,21 @@
         context: document.getElementById('context').value,
         hores: route === 'J-a' ? el.hores.value : '',
         horesARecuperar: route === 'J-b' ? el.horesARecuperar.value : '',
-        recoveryItems: route === 'J-b' ? collectRecoveryItems() : [],
+        recoveryItems,
         permisLlicenciaAbsencia: document.getElementById('permisLlicenciaAbsencia').value,
         confirmationOk: document.getElementById('confirmationOk').checked,
         documentFile,
       };
+    }
+
+    function validateRecoveryDates(recoveryItems) {
+      const absenceDate = el.absenceDate.value;
+
+      recoveryItems.forEach((item, index) => {
+        if (item.date && absenceDate && item.date < absenceDate) {
+          throw new Error(`La data de recuperació ${index + 1} no pot ser anterior a la data de l'absència.`);
+        }
+      });
     }
 
     function collectSelectedScheduleItems() {

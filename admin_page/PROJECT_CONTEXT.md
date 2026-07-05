@@ -76,6 +76,15 @@ The script currently requires these logical tables from the registry:
 | `Dades de professors` | `Llista` |
 | `Càrrega lectiva` | `assignatures` |
 | `Horaris` | `GPU001` |
-| `Faltaré` | `form_data` |
+| `Faltaré` | `form_data`, `absences`, `recovery`, `profes_guardia` |
 
-`Faltaré -> form_data` includes column AA named `managed`, used by the admin filter `Gestionades`.
+`Faltaré` storage is normalized:
+
+- `form_data`: parent absence request rows.
+- `absences`: selected schedule/class child rows linked by `row_id`.
+- `recovery`: recovery date/time child rows linked by `row_id`.
+- `profes_guardia`: guard-duty teacher assignments created by `control_panel`.
+
+`Faltaré -> form_data` includes column Y named `managed`, used by the admin filter `Gestionades`.
+
+Do not read selected schedules or recovery items from JSON fields in `form_data`; those fields are legacy and not part of the current normalized model.

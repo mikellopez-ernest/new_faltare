@@ -1,0 +1,936 @@
+<!doctype html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #17202a;
+        background: #f4f6f8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 24px;
+      }
+
+      main {
+        width: min(1280px, 100%);
+        margin: 0 auto;
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      h1 {
+        margin: 0 0 4px;
+        font-size: 28px;
+        line-height: 1.2;
+      }
+
+      .user {
+        margin: 0;
+        color: #5b6775;
+        font-size: 14px;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        color: #344054;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .date-picker-shell {
+        position: relative;
+      }
+
+      .date-nav {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .date-picker {
+        min-width: 180px;
+        height: 40px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 0 10px;
+        font: inherit;
+        background: #fff;
+      }
+
+      .calendar-popover {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        z-index: 20;
+        width: 276px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 12px;
+        background: #fff;
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
+      }
+
+      .calendar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .calendar-header strong {
+        font-size: 14px;
+      }
+
+      .calendar-header button,
+      .calendar-day {
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        padding: 0;
+      }
+
+      .calendar-header button {
+        background: #e2e8f0;
+        color: #17202a;
+      }
+
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 4px;
+      }
+
+      .calendar-weekday {
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 700;
+        text-align: center;
+      }
+
+      .calendar-day {
+        background: #fff;
+        color: #17202a;
+        font-weight: 400;
+      }
+
+      .calendar-day:hover {
+        background: #dbeafe;
+      }
+
+      .calendar-day.selected {
+        background: #1d4ed8;
+        color: #fff;
+      }
+
+      .calendar-empty {
+        width: 32px;
+        height: 32px;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid #cbd5e1;
+        background: #fff;
+      }
+
+      table {
+        width: 100%;
+        min-width: 980px;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #e9eef5;
+        color: #1f2937;
+        font-size: 12px;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .time-row td {
+        background: #cfead1;
+        border-top: 2px solid #8fcf96;
+        border-bottom-color: #9bd5a1;
+        font-weight: 700;
+      }
+
+      .recovery-row td {
+        background: #fff3bd;
+        border-bottom-color: #efd36f;
+        white-space: pre-line;
+      }
+
+      .empty-row td {
+        color: #7a8796;
+        font-style: italic;
+      }
+
+      .manage-cell {
+        width: 132px;
+        text-align: right;
+      }
+
+      button {
+        height: 34px;
+        border: 0;
+        border-radius: 6px;
+        padding: 0 14px;
+        background: #1d4ed8;
+        color: #fff;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.65;
+      }
+
+      .date-step {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        background: #e2e8f0;
+        color: #17202a;
+        font-size: 20px;
+        line-height: 1;
+      }
+
+      .date-step:hover {
+        background: #cbd5e1;
+      }
+
+      .status {
+        min-height: 22px;
+        margin-top: 14px;
+        color: #52606d;
+      }
+
+      .error {
+        color: #b42318;
+      }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(15, 23, 42, 0.42);
+      }
+
+      .modal-backdrop.open {
+        display: flex;
+      }
+
+      .modal {
+        width: min(1180px, 100%);
+        max-height: min(760px, calc(100vh - 48px));
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+        overflow: hidden;
+      }
+
+      .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      .modal-title {
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .modal-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .icon-button {
+        width: 38px;
+        height: 38px;
+        padding: 0;
+        background: #e2e8f0;
+        color: #17202a;
+        font-size: 18px;
+      }
+
+      .icon-button.active {
+        background: #1d4ed8;
+        color: #fff;
+      }
+
+      .modal-body {
+        overflow: auto;
+      }
+
+      .modal table {
+        min-width: 1050px;
+      }
+
+      .merged-task {
+        font-weight: 700;
+      }
+
+      .guard-empty {
+        color: #b42318;
+        font-weight: 700;
+      }
+
+      .guard-select {
+        width: 100%;
+        min-width: 210px;
+        height: 34px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 0 8px;
+        font: inherit;
+        background: #fff;
+      }
+
+      .modal-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 18px;
+        border-top: 1px solid #e2e8f0;
+        color: #52606d;
+      }
+
+      @media (max-width: 720px) {
+        body {
+          padding: 16px;
+        }
+
+        .toolbar {
+          display: grid;
+          align-items: stretch;
+        }
+
+        .date-picker {
+          width: 100%;
+        }
+
+        .date-nav {
+          display: grid;
+          grid-template-columns: 40px 1fr 40px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="toolbar">
+        <div>
+          <h1>Control panel</h1>
+          <p class="user" id="user">Carregant...</p>
+        </div>
+        <label>
+          Data
+          <span class="date-nav">
+            <button type="button" class="date-step" id="previousDay" aria-label="Dia anterior">&lt;</button>
+            <span class="date-picker-shell">
+              <input type="text" class="date-picker" id="dateFilter" inputmode="none" autocomplete="off" placeholder="aaaa-mm-dd">
+            </span>
+            <button type="button" class="date-step" id="nextDay" aria-label="Dia següent">&gt;</button>
+          </span>
+        </label>
+      </div>
+
+      <div class="table-wrap">
+        <table aria-label="Control panel guard duties">
+          <thead>
+            <tr>
+              <th>Franja horària</th>
+              <th>Professor absent</th>
+              <th>Assignatura</th>
+              <th>Grup</th>
+              <th>Aula</th>
+              <th>Gestionar</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr class="empty-row">
+              <td colspan="6">Carregant dades...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="status" id="status"></div>
+    </main>
+
+    <div class="modal-backdrop" id="managementModal" role="dialog" aria-modal="true" aria-labelledby="managementTitle">
+      <section class="modal">
+        <header class="modal-header">
+          <div>
+            <h2 class="modal-title" id="managementTitle">Gestionar guàrdia</h2>
+            <p class="user" id="managementSubtitle"></p>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="icon-button" id="editManagement" aria-label="Editar assignacions" title="Editar assignacions">⚙</button>
+            <button type="button" class="icon-button" id="closeManagement" aria-label="Tancar" title="Tancar">×</button>
+          </div>
+        </header>
+        <div class="modal-body">
+          <table aria-label="Management slot rows">
+            <thead>
+              <tr>
+                <th>Professor absent</th>
+                <th>Assignatura</th>
+                <th>Grup</th>
+                <th>Aula</th>
+                <th>Tasques</th>
+                <th>Guàrdia</th>
+              </tr>
+            </thead>
+            <tbody id="managementRows"></tbody>
+          </table>
+        </div>
+        <footer class="modal-footer">
+          <span id="managementStatus"></span>
+          <button type="button" id="saveManagement" disabled>Desa</button>
+        </footer>
+      </section>
+    </div>
+
+    <script>
+      const state = {
+        loading: false,
+      };
+
+      const dateFilter = document.getElementById('dateFilter');
+      const previousDayButton = document.getElementById('previousDay');
+      const nextDayButton = document.getElementById('nextDay');
+      const rowsElement = document.getElementById('rows');
+      const statusElement = document.getElementById('status');
+      const managementModal = document.getElementById('managementModal');
+      const managementRowsElement = document.getElementById('managementRows');
+      const managementSubtitle = document.getElementById('managementSubtitle');
+      const managementStatus = document.getElementById('managementStatus');
+      const editManagementButton = document.getElementById('editManagement');
+      const closeManagementButton = document.getElementById('closeManagement');
+      const saveManagementButton = document.getElementById('saveManagement');
+
+      let managementData = null;
+      let managementEditMode = false;
+      let managementSaving = false;
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const userEmail = data.user && data.user.email ? data.user.email : 'Usuari sense correu disponible';
+          document.getElementById('user').textContent = userEmail;
+          dateFilter.value = data.today;
+          initializeDatePickers(document);
+          renderDay(data.day);
+        })
+        .withFailureHandler(showError)
+        .getControlPanelBootstrapData();
+
+      dateFilter.addEventListener('change', function() {
+        loadDay(dateFilter.value);
+      });
+
+      previousDayButton.addEventListener('click', function() {
+        shiftDate(-1);
+      });
+
+      nextDayButton.addEventListener('click', function() {
+        shiftDate(1);
+      });
+
+      rowsElement.addEventListener('click', function(event) {
+        const button = event.target.closest('button[data-time]');
+
+        if (button) {
+          openManagement(button.dataset.time);
+        }
+      });
+
+      closeManagementButton.addEventListener('click', closeManagement);
+
+      managementModal.addEventListener('click', function(event) {
+        if (event.target === managementModal) {
+          closeManagement();
+        }
+      });
+
+      editManagementButton.addEventListener('click', function() {
+        managementEditMode = !managementEditMode;
+        editManagementButton.classList.toggle('active', managementEditMode);
+        renderManagementRows();
+      });
+
+      saveManagementButton.addEventListener('click', saveManagement);
+
+      managementRowsElement.addEventListener('change', function(event) {
+        const select = event.target.closest('.guard-select');
+
+        if (!select || !managementData) {
+          return;
+        }
+
+        const rowIndex = Number(select.dataset.rowIndex);
+        const selectedCode = select.value;
+        const selectedCandidate = managementData.candidates.filter(function(candidate) {
+          return candidate.code === selectedCode;
+        })[0];
+
+        if (selectedCode) {
+          managementData.rows.forEach(function(row, index) {
+            if (index !== rowIndex && row.guardTeacherCode === selectedCode) {
+              row.guardTeacherCode = '';
+              row.guardTeacherName = '';
+            }
+          });
+        }
+
+        managementData.rows[rowIndex].guardTeacherCode = selectedCode;
+        managementData.rows[rowIndex].guardTeacherName = selectedCandidate ? selectedCandidate.name : '';
+        renderManagementRows();
+      });
+
+      document.addEventListener('click', function(event) {
+        if (!event.target.closest('.date-picker-shell') && !event.target.closest('.calendar-popover')) {
+          closeCalendars();
+        }
+      });
+
+      function initializeDatePickers(root) {
+        root.querySelectorAll('.date-picker').forEach(function(input) {
+          if (input.dataset.datePickerReady) {
+            return;
+          }
+
+          input.dataset.datePickerReady = 'true';
+          input.addEventListener('focus', function() {
+            openCalendar(input);
+          });
+          input.addEventListener('click', function() {
+            openCalendar(input);
+          });
+        });
+      }
+
+      function openCalendar(input) {
+        const existing = document.querySelector('.calendar-popover');
+
+        if (existing && existing.dataset.inputId === getDatePickerId(input)) {
+          return;
+        }
+
+        closeCalendars();
+
+        const popover = document.createElement('div');
+        popover.className = 'calendar-popover';
+        popover.dataset.inputId = getDatePickerId(input);
+        input.closest('.date-picker-shell').appendChild(popover);
+
+        const selected = parseIsoDate(input.value) || parseIsoDate(new Date().toISOString().slice(0, 10));
+        renderCalendar(popover, input, selected.getFullYear(), selected.getMonth());
+      }
+
+      function getDatePickerId(input) {
+        if (!input.dataset.datePickerId) {
+          input.dataset.datePickerId = 'date-picker-' + Math.random().toString(36).slice(2);
+        }
+
+        return input.dataset.datePickerId;
+      }
+
+      function renderCalendar(popover, input, year, month) {
+        const selectedIso = input.value;
+        const firstDay = new Date(year, month, 1);
+        const startOffset = (firstDay.getDay() + 6) % 7;
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const monthLabel = firstDay.toLocaleDateString('ca-ES', {
+          month: 'long',
+          year: 'numeric',
+        });
+        const cells = [];
+
+        for (let i = 0; i < startOffset; i += 1) {
+          cells.push('<span class="calendar-empty"></span>');
+        }
+
+        for (let day = 1; day <= daysInMonth; day += 1) {
+          const iso = formatIsoDate(new Date(year, month, day));
+          cells.push(
+            '<button type="button" class="calendar-day ' + (iso === selectedIso ? 'selected' : '') +
+            '" data-date="' + iso + '">' + day + '</button>'
+          );
+        }
+
+        popover.innerHTML =
+          '<div class="calendar-header">' +
+            '<button type="button" data-calendar-nav="-1" aria-label="Mes anterior">&lt;</button>' +
+            '<strong>' + escapeHtml(monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)) + '</strong>' +
+            '<button type="button" data-calendar-nav="1" aria-label="Mes següent">&gt;</button>' +
+          '</div>' +
+          '<div class="calendar-grid">' +
+            ['Dl', 'Dt', 'Dc', 'Dj', 'Dv', 'Ds', 'Dg'].map(function(dayLabel) {
+              return '<span class="calendar-weekday">' + dayLabel + '</span>';
+            }).join('') +
+            cells.join('') +
+          '</div>';
+
+        popover.querySelectorAll('[data-calendar-nav]').forEach(function(button) {
+          button.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            const delta = Number(button.dataset.calendarNav);
+            renderCalendar(popover, input, year, month + delta);
+          });
+        });
+
+        popover.querySelectorAll('.calendar-day').forEach(function(button) {
+          button.addEventListener('click', function(event) {
+            event.preventDefault();
+            input.value = button.dataset.date;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            closeCalendars();
+          });
+        });
+      }
+
+      function closeCalendars() {
+        document.querySelectorAll('.calendar-popover').forEach(function(calendar) {
+          calendar.remove();
+        });
+      }
+
+      function parseIsoDate(value) {
+        const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+        if (!match) {
+          return null;
+        }
+
+        return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+      }
+
+      function formatIsoDate(date) {
+        return [
+          date.getFullYear(),
+          String(date.getMonth() + 1).padStart(2, '0'),
+          String(date.getDate()).padStart(2, '0'),
+        ].join('-');
+      }
+
+      function shiftDate(deltaDays) {
+        if (state.loading) {
+          return;
+        }
+
+        const current = parseIsoDate(dateFilter.value) || parseIsoDate(new Date().toISOString().slice(0, 10));
+
+        if (!current) {
+          return;
+        }
+
+        current.setDate(current.getDate() + deltaDays);
+        dateFilter.value = formatIsoDate(current);
+        closeCalendars();
+        loadDay(dateFilter.value);
+      }
+
+      function loadDay(date) {
+        if (!date || state.loading) {
+          return;
+        }
+
+        state.loading = true;
+        setDateControlsDisabled(true);
+        statusElement.className = 'status';
+        statusElement.textContent = 'Carregant dades...';
+        rowsElement.innerHTML = '<tr class="empty-row"><td colspan="6">Carregant dades...</td></tr>';
+
+        google.script.run
+          .withSuccessHandler(function(day) {
+            state.loading = false;
+            setDateControlsDisabled(false);
+            renderDay(day);
+          })
+          .withFailureHandler(function(error) {
+            state.loading = false;
+            setDateControlsDisabled(false);
+            showError(error);
+          })
+          .getControlPanelDayData({ date: date });
+      }
+
+      function setDateControlsDisabled(disabled) {
+        previousDayButton.disabled = disabled;
+        nextDayButton.disabled = disabled;
+        dateFilter.disabled = disabled;
+      }
+
+      function openManagement(time) {
+        if (!dateFilter.value) {
+          return;
+        }
+
+        managementEditMode = false;
+        managementSaving = false;
+        editManagementButton.classList.remove('active');
+        managementModal.classList.add('open');
+        managementSubtitle.textContent = dateFilter.value + ' · ' + time;
+        managementStatus.textContent = 'Carregant...';
+        managementRowsElement.innerHTML = '<tr class="empty-row"><td colspan="6">Carregant dades...</td></tr>';
+
+        google.script.run
+          .withSuccessHandler(function(data) {
+            managementData = data;
+            managementSubtitle.textContent = data.date + ' · ' + data.time;
+            renderManagementRows();
+          })
+          .withFailureHandler(function(error) {
+            managementStatus.textContent = error && error.message ? error.message : 'No s\'ha pogut carregar la gestió.';
+            managementRowsElement.innerHTML = '';
+          })
+          .getManagementSlotData({ date: dateFilter.value, time: time });
+      }
+
+      function closeManagement() {
+        managementModal.classList.remove('open');
+        managementData = null;
+        managementEditMode = false;
+        managementSaving = false;
+      }
+
+      function renderManagementRows() {
+        if (!managementData) {
+          return;
+        }
+
+        managementRowsElement.innerHTML = managementData.rows.map(function(row, index) {
+          const guardCell = managementEditMode
+            ? renderGuardSelect(row, index)
+            : renderGuardText(row);
+
+          if (row.type === 'corridor_lower' || row.type === 'corridor_upper') {
+            return '<tr>' +
+              '<td></td>' +
+              '<td colspan="4" class="merged-task">' + escapeHtml(row.mergedText) + '</td>' +
+              '<td>' + guardCell + '</td>' +
+              '</tr>';
+          }
+
+          return '<tr>' +
+            '<td>' + escapeHtml(row.absentTeacher) + '</td>' +
+            '<td>' + escapeHtml(row.subject) + '</td>' +
+            '<td>' + escapeHtml(row.group) + '</td>' +
+            '<td>' + escapeHtml(row.classroom) + '</td>' +
+            '<td>' + escapeHtml(row.studentWork) + '</td>' +
+            '<td>' + guardCell + '</td>' +
+            '</tr>';
+        }).join('');
+
+        managementStatus.textContent = managementData.notEnoughTeachers
+          ? 'No hi ha prou professorat de guàrdia per cobrir totes les files.'
+          : managementData.candidates.length + ' professorat de guàrdia disponible.';
+        updateManagementSaveState();
+      }
+
+      function renderGuardText(row) {
+        return row.guardTeacherName
+          ? escapeHtml(row.guardTeacherName)
+          : '<span class="guard-empty">Sense assignar</span>';
+      }
+
+      function renderGuardSelect(row, rowIndex) {
+        const options = ['<option value="">Sense assignar</option>'].concat(managementData.candidates.map(function(candidate) {
+          const selected = candidate.code === row.guardTeacherCode ? ' selected' : '';
+          return '<option value="' + escapeHtml(candidate.code) + '"' + selected + '>' + escapeHtml(candidate.name) + '</option>';
+        }));
+
+        return '<select class="guard-select" data-row-index="' + rowIndex + '">' + options.join('') + '</select>';
+      }
+
+      function updateManagementSaveState() {
+        if (!managementData || managementSaving) {
+          saveManagementButton.disabled = true;
+          return;
+        }
+
+        saveManagementButton.disabled = !isManagementValid();
+      }
+
+      function isManagementValid() {
+        if (!managementData) {
+          return false;
+        }
+
+        const usedCodes = {};
+        let duplicate = false;
+
+        managementData.rows.forEach(function(row) {
+          const code = row.guardTeacherCode;
+
+          if (!code) {
+            return;
+          }
+
+          if (usedCodes[code]) {
+            duplicate = true;
+          }
+
+          usedCodes[code] = true;
+        });
+
+        if (duplicate) {
+          return false;
+        }
+
+        if (managementData.candidates.length >= managementData.rows.length) {
+          return managementData.rows.every(function(row) {
+            return Boolean(row.guardTeacherCode);
+          });
+        }
+
+        return managementData.candidates.every(function(candidate) {
+          return Boolean(usedCodes[candidate.code]);
+        });
+      }
+
+      function saveManagement() {
+        if (!managementData || !isManagementValid() || managementSaving) {
+          return;
+        }
+
+        managementSaving = true;
+        saveManagementButton.disabled = true;
+        managementStatus.textContent = 'Desant...';
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            managementSaving = false;
+            managementEditMode = false;
+            editManagementButton.classList.remove('active');
+            managementStatus.textContent = 'Assignacions desades: ' + result.saved + '.';
+            renderManagementRows();
+          })
+          .withFailureHandler(function(error) {
+            managementSaving = false;
+            managementStatus.textContent = error && error.message ? error.message : 'No s\'han pogut desar les assignacions.';
+            updateManagementSaveState();
+          })
+          .saveManagementSlotData({
+            date: managementData.date,
+            time: managementData.time,
+            rows: managementData.rows,
+          });
+      }
+
+      function renderDay(day) {
+        const html = [];
+        let absenceCount = 0;
+        let recoveryCount = 0;
+
+        day.slots.forEach(function(slot) {
+          html.push(renderTimeRow(slot.time));
+
+          if (slot.recoveryTeachers.length) {
+            recoveryCount += slot.recoveryTeachers.length;
+            html.push(renderRecoveryRow(slot.recoveryTeachers));
+          }
+
+          if (slot.absences.length) {
+            absenceCount += slot.absences.length;
+            slot.absences.forEach(function(absence) {
+              html.push(renderAbsenceRow(absence));
+            });
+          }
+        });
+
+        rowsElement.innerHTML = html.join('');
+        statusElement.className = 'status';
+        statusElement.textContent =
+          day.date + ' · ' + absenceCount + ' absències · ' + recoveryCount + ' guàrdies preferents';
+      }
+
+      function renderTimeRow(time) {
+        return '<tr class="time-row">' +
+          '<td colspan="5">' + escapeHtml(time) + '</td>' +
+          '<td class="manage-cell"><button type="button" data-time="' + escapeHtml(time) + '">Gestionar</button></td>' +
+          '</tr>';
+      }
+
+      function renderRecoveryRow(teachers) {
+        return '<tr class="recovery-row">' +
+          '<td></td>' +
+          '<td colspan="4">Guàrdia preferent:<br>' + escapeHtml(teachers.join('\n')) + '</td>' +
+          '<td></td>' +
+          '</tr>';
+      }
+
+      function renderAbsenceRow(absence) {
+        return '<tr>' +
+          '<td></td>' +
+          '<td>' + escapeHtml(absence.teacherName) + '</td>' +
+          '<td>' + escapeHtml(absence.subject) + '</td>' +
+          '<td>' + escapeHtml(absence.group) + '</td>' +
+          '<td>' + escapeHtml(absence.classroom) + '</td>' +
+          '<td></td>' +
+          '</tr>';
+      }
+
+      function showError(error) {
+        statusElement.className = 'status error';
+        statusElement.textContent = error && error.message
+          ? error.message
+          : 'No s\'han pogut carregar les dades.';
+      }
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+    </script>
+  </body>
+</html>

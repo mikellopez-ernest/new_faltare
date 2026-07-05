@@ -2,9 +2,9 @@
 
 ## Scope
 
-This document specifies the first iteration of the `attendance_form` Google Apps Script web app.
+This document specifies the current `attendance_form` Google Apps Script web app.
 
-The script will expose a teacher-facing endpoint for absence/guard duty notifications. This is a specification only; no development is included in this document.
+The script exposes a teacher-facing endpoint for absence/guard duty notifications.
 
 ## Database Architecture
 
@@ -17,7 +17,9 @@ Configured logical tables and physical sheet names:
 | `Dades de professors` | `Llista` |
 | `Horaris` | `GPU001` |
 | `Càrrega lectiva` | `assignatures` |
-| `Faltaré` | `form_data` |
+| `Faltaré` | `form_data`, `absences`, `recovery` |
+
+`attendance_form` writes only the three `Faltaré` sheets listed above. The same logical `Faltaré` spreadsheet also contains `profes_guardia`, which is owned by `control_panel`.
 
 The app must not assume these sheets live in the same spreadsheet. Each logical table is resolved through the registry spreadsheet defined by script property `db`.
 
@@ -273,7 +275,7 @@ If the selected date is a weekend or there are no schedule rows for the selected
 
 At least one schedule row must be checked for a one-day `Avisar que genero guàrdia` submission.
 
-When editing an existing row, the saved `selected_schedule_items_json` is the source of truth for previously selected schedule rows. The form must render those stored subjects immediately, use them as a fallback if the live timetable lookup fails or returns no rows, and allow saving the edited row as long as at least one stored/checked subject is present.
+When editing an existing row, saved child rows in `Faltaré -> absences` are the source of truth for previously selected schedule rows. The form must render those stored subjects immediately, use them as a fallback if the live timetable lookup fails or returns no rows, and allow saving the edited row as long as at least one stored/checked subject is present.
 
 ### Part G - Multi-Day Absence Reincorporation Date
 
@@ -389,6 +391,7 @@ Dynamic recovery controls:
 - Each recovery control has:
   - Date picker titled `Data`, with weeks starting on Monday.
   - Combo box titled `Hora`.
+- Recovery dates cannot be before Part E, `Data prevista de l'absència`. The form must show an error and block submission if a recovery date is earlier.
 
 Recovery hour combo values:
 
@@ -456,7 +459,7 @@ Upload behavior:
 
 Validation:
 
-- The upload is not mandatory in this first iteration.
+- The upload is currently not mandatory.
 - Later rules may make it mandatory depending on `Motiu` and/or `Permís, llicència o absència ordinària`.
 
 ### Part M - Confirmació
@@ -484,11 +487,27 @@ Validation:
 Submitted form rows must be stored in:
 
 - Logical table: `Faltaré`
-- Sheet: `form_data`
+- Parent sheet: `form_data`
+- Child sheet for selected schedule/class rows: `absences`
+- Child sheet for recovery date/time rows: `recovery`
 
 This table must also be resolved through the registry spreadsheet. Do not assume it lives in the same spreadsheet as any other logical table.
 
-The first implementation schema is documented in `FORM_DATA_SCHEMA.md`.
+The normalized schema is documented in `FORM_DATA_SCHEMA.md`.
+
+`form_data` must not store these old JSON fields:
+
+- `selected_schedule_items_json`
+- `recovery_items_json`
+
+Instead:
+
+- Selected schedule/class rows are stored in `absences`, linked by `row_id`.
+- Recovery date/time rows are stored in `recovery`, linked by `row_id`.
+
+When creating a row, first write `form_data`, then write child rows using the created `row_id`.
+
+When updating a row, update `form_data`, replace all existing `absences` child rows for that `row_id`, and replace all existing `recovery` child rows for that `row_id`.
 
 The submission handler must send a confirmation email to the user who created or updated the absence. The generated email must include:
 
@@ -506,9 +525,9 @@ The intro/description appears only on the first screen. It must not be shown aft
 
 After a successful submission, redirect the web page to `https://agora.xtec.cat/sesernestlluch-cunit/`.
 
-When editing an existing row, the stored `selected_schedule_items_json` must be loaded, rendered in the schedule table, and reused so old rows can be saved again even if the live schedule list has not been freshly regenerated yet.
+When editing an existing row, stored child rows from `absences` and `recovery` must be loaded and rendered in the form. `absences` rows must be used as the selected schedule fallback when the live schedule list has not been freshly regenerated yet.
 
-## Open Questions
+## Deferred Work
 
-1. Review and correct the generated `Faltaré` / `form_data` schema if any columns should be renamed, removed, or reordered.
-2. Define the later update/justification link workflow.
+1. Define the later update/justification link workflow.
+2. Define any future rules that make document upload mandatory for specific reasons or permit/license types.

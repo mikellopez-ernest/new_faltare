@@ -10,6 +10,7 @@ This repo contains multiple Apps Script projects that are developed together but
 | --- | --- | --- |
 | `admin_page/` | `admin_page` | Administration endpoint for reviewing submitted absences. |
 | `attendance_form/` | `attendance_form` | Teacher-facing absence and guard-duty form. |
+| `control_panel/` | `control_panel` | Daily guard-duty control panel grouped by time slot. |
 
 Current script IDs are documented in `PROJECT_CONTEXT.md`.
 
@@ -37,7 +38,16 @@ Current logical table mappings:
 | `Dades de professors` | `Llista` |
 | `Horaris` | `GPU001` |
 | `Càrrega lectiva` | `assignatures` |
-| `Faltaré` | `form_data` |
+| `Faltaré` | `form_data`, `absences`, `recovery`, `profes_guardia` |
+
+`Faltaré` uses a parent/child structure:
+
+- `form_data`: main absence request row.
+- `absences`: selected schedule/class rows linked to `form_data.row_id`.
+- `recovery`: recovery date/time rows linked to `form_data.row_id`.
+- `profes_guardia`: guard-duty assignments created by the control panel, linked to absence/corridor assignment IDs.
+
+Schedule selections and recovery items must not be stored as JSON fields in `form_data`.
 
 ## Git Setup
 
@@ -85,6 +95,12 @@ clasp push -f
 clasp deploy -d "description"
 ```
 
+```sh
+cd control_panel
+clasp push -f
+clasp deploy -d "description"
+```
+
 ## Docs
 
 - `ARCHITECTURE.md`: shared architecture and scaling rules.
@@ -92,9 +108,10 @@ clasp deploy -d "description"
 - `attendance_form/ATTENDANCE_FORM_SPEC.md`: teacher form behavior.
 - `attendance_form/FORM_DATA_SCHEMA.md`: submitted row schema.
 - `admin_page/ADMIN_PAGE_SPEC.md`: admin endpoint behavior.
+- `control_panel/CONTROL_PANEL_SPEC.md`: daily guard-duty control panel behavior.
 
 ## Deployment Notes
 
-Both deployed webapps are expected to run as the deployer/creator account and be accessible to the `@iernestlluch.cat` domain.
+Deployed webapps are expected to run as the deployer/creator account and be accessible to the `@iernestlluch.cat` domain.
 
 When adding new services, update `appsscript.json` OAuth scopes explicitly.

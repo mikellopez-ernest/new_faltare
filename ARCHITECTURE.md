@@ -10,6 +10,7 @@ Each script lives in its own top-level folder:
 | --- | --- | --- |
 | `admin_page/` | `admin_page` | Administration-facing script. |
 | `attendance_form/` | `attendance_form` | Teacher-facing absence/guard-duty form. |
+| `control_panel/` | `control_panel` | Daily guard-duty control panel. |
 
 Future scripts should follow the same pattern:
 
@@ -58,7 +59,24 @@ Current logical table mappings:
 | `Dades de professors` | `Llista` |
 | `Horaris` | `GPU001` |
 | `Càrrega lectiva` | `assignatures` |
-| `Faltaré` | `form_data` |
+| `Faltaré` | `form_data`, `absences`, `recovery`, `profes_guardia` |
+
+`Faltaré` is one logical table spreadsheet with multiple physical sheets:
+
+- `form_data`: one parent row per submitted/updated absence request.
+- `absences`: child rows for selected schedule/class items, linked by `row_id`.
+- `recovery`: child rows for recovery date/time items, linked by `row_id`.
+- `profes_guardia`: guard-duty assignments for control-panel substitutions and corridor duties.
+
+Do not store selected schedule rows or recovery rows as JSON inside `form_data`. Use the child sheets so future scripts can filter, count, and load these records without parsing JSON.
+
+## Script Responsibilities
+
+| Script | Primary responsibility |
+| --- | --- |
+| `attendance_form` | Creates and updates absence notifications; writes parent rows to `form_data`, selected class rows to `absences`, and recovery rows to `recovery`. |
+| `admin_page` | Reviews submitted parent rows from `form_data`, translates teacher codes through `Dades de professors`, filters rows, and marks selected rows as `managed`. |
+| `control_panel` | Shows a selected-day guard-duty table grouped by fixed time slots, using `absences` for missing-class rows, `recovery` for preferred guard-duty candidates, and `profes_guardia` for saved substitutions. |
 
 ## Template Pattern
 

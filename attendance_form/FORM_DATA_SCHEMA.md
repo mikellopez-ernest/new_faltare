@@ -1,12 +1,34 @@
-# Faltaré / form_data Schema
+# Faltaré Schema
 
-Submitted and updated `attendance_form` rows are stored in the logical table `Faltaré`, sheet `form_data`.
+Submitted and updated `attendance_form` data, plus control-panel guard assignments, are stored in the logical table `Faltaré`.
 
-The table is resolved through the database registry spreadsheet from script property `db`; it is not assumed to live in the registry spreadsheet.
+`Faltaré` is resolved through the database registry spreadsheet from script property `db`. The value in the registry points to the spreadsheet that contains these physical sheets:
 
-The user plans to delete the old form-data sheet/spreadsheet contents, so this implementation creates the header row automatically when `form_data` is empty.
+- `form_data`
+- `absences`
+- `recovery`
+- `profes_guardia`
 
-Columns are ordered to follow the form flow, with minimal internal metadata first:
+## Design
+
+The old JSON fields in `form_data` are not part of the current normalized schema:
+
+- `selected_schedule_items_json`
+- `recovery_items_json`
+
+The script may remove these legacy columns by header name during schema validation/migration if they are still present in an older sheet.
+
+Selected schedule/class rows now live in `absences`.
+
+Recovery date/time rows now live in `recovery`.
+
+Both child sheets use `row_id` to relate back to the parent row in `form_data`.
+
+`profes_guardia` is written by `control_panel`, not by `attendance_form`. It is documented here because it lives inside the same logical `Faltaré` spreadsheet.
+
+## `form_data`
+
+One row per submitted or updated absence request.
 
 | Column | Header | Description |
 | --- | --- | --- |
@@ -21,20 +43,103 @@ Columns are ordered to follow the form flow, with minimal internal metadata firs
 | I | `professor_acompanyant` | `Sí` or `No`. Defaults to `No`. |
 | J | `absence_date` | Selected absence date. |
 | K | `multi_day` | `Sí` or `No`. Defaults to `No`. |
-| L | `selected_schedule_items_json` | JSON array of checked grouped schedule rows and student work text. Grouped rows include source row IDs, groups, classrooms, and whether the row had an associated group. This JSON is loaded back into the edit form and preserved when saving existing rows. |
-| M | `reincorporation_date` | Reincorporation date for multi-day absences. |
-| N | `multi_day_student_work` | Student-work text for multi-day absences. |
-| O | `motiu` | Selected absence reason. |
-| P | `motiu_route` | `J-a` for ordinary hours, `J-b` for recovery hours. |
-| Q | `context` | Confidential context text. |
-| R | `hores` | Hidden hours value for `J-a`, auto-filled from checked grouped schedule rows by default and still submitted. |
-| S | `hores_a_recuperar` | Recovery hour count for `J-b`, auto-filled from checked grouped schedule rows by default. |
-| T | `recovery_items_json` | JSON array of recovery date/time pairs. |
-| U | `permis_llicencia_absencia` | Selected permit/license/ordinary absence value. For `J-b`, the field is hidden and automatically saved as `Absència ordinària`. |
-| V | `document_file_id` | Uploaded Drive file ID, if any. Preserved on edit when no new file is uploaded. |
-| W | `document_file_url` | Uploaded Drive file URL, if any. Preserved on edit when no new file is uploaded. |
-| X | `document_file_name` | Uploaded Drive file name, if any. Preserved on edit when no new file is uploaded. |
-| Y | `confirmation_ok` | `TRUE` when the mandatory confirmation is checked. |
-| Z | `status` | Initial value `submitted`; changed to `updated` when edited. |
+| L | `reincorporation_date` | Reincorporation date for multi-day absences. |
+| M | `multi_day_student_work` | Student-work text for multi-day absences. |
+| N | `motiu` | Selected absence reason. |
+| O | `motiu_route` | `J-a` for ordinary hours, `J-b` for recovery hours. |
+| P | `context` | Confidential context text. |
+| Q | `hores` | Hidden hours value for `J-a`, auto-filled from checked grouped schedule rows by default and still submitted. |
+| R | `hores_a_recuperar` | Recovery hour count for `J-b`, auto-filled from checked grouped schedule rows by default. |
+| S | `permis_llicencia_absencia` | Selected permit/license/ordinary absence value. For `J-b`, the field is hidden and automatically saved as `Absència ordinària`. |
+| T | `document_file_id` | Uploaded Drive file ID, if any. Preserved on edit when no new file is uploaded. |
+| U | `document_file_url` | Uploaded Drive file URL, if any. Preserved on edit when no new file is uploaded. |
+| V | `document_file_name` | Uploaded Drive file name, if any. Preserved on edit when no new file is uploaded. |
+| W | `confirmation_ok` | `TRUE` when the mandatory confirmation is checked. |
+| X | `status` | Initial value `submitted`; changed to `updated` when edited. |
+| Y | `managed` | `TRUE` when the admin page marks the row as managed; empty/FALSE otherwise. |
 
-If the sheet has no headers, the script creates this header row automatically. If headers already exist but do not match, submission stops with an error so data is not written into an unexpected structure.
+## `absences`
+
+One row per selected schedule/class item.
+
+Rows are linked to `form_data` with `row_id`.
+
+| Column | Header | Description |
+| --- | --- | --- |
+| A | `row_id` | Parent `form_data.row_id`. |
+| B | `absence_item_id` | Stable child identifier, for example `row_id + "-" + index`. |
+| C | `item_index` | 1-based order in the submitted selection. |
+| D | `time` | Human-readable time derived from schedule slot, for example `08:00`. |
+| E | `subject_code` | Subject code from `Horaris`. |
+| F | `subject_name` | Subject name resolved from `Càrrega lectiva -> assignatures`. |
+| G | `groups` | Comma-separated grouped class groups. |
+| H | `classrooms` | Comma-separated classrooms from source schedule rows. |
+| I | `schedule_row_ids` | Comma-separated source `Horaris` row IDs included in this grouped item. |
+| J | `student_work` | Text entered in `Feina per l'alumnat`. |
+| K | `has_group` | `TRUE` if the grouped item had at least one group. |
+| L | `created_at` | Child row creation timestamp. |
+| M | `updated_at` | Child row last update timestamp. |
+
+## `recovery`
+
+One row per recovery date/time item.
+
+Rows are linked to `form_data` with `row_id`.
+
+| Column | Header | Description |
+| --- | --- | --- |
+| A | `row_id` | Parent `form_data.row_id`. |
+| B | `recovery_item_id` | Stable child identifier, for example `row_id + "-" + index`. |
+| C | `item_index` | 1-based order in the submitted recovery list. |
+| D | `date` | Recovery date. |
+| E | `time` | Recovery hour. |
+| F | `created_at` | Child row creation timestamp. |
+| G | `updated_at` | Child row last update timestamp. |
+
+## `profes_guardia`
+
+One row per saved guard-duty assignment from `control_panel`.
+
+Rows can point either to a real absence row from `absences` or to one of the corridor duties created inside the control-panel popup.
+
+| Column | Header | Description |
+| --- | --- | --- |
+| A | `assignment_id` | Stable assignment identifier. |
+| B | `assignment_date` | Selected date, `yyyy-mm-dd`. |
+| C | `weekday` | ISO weekday, Monday = `1`, Sunday = `7`. |
+| D | `time` | Time slot, for example `08:00`. |
+| E | `absence_id` | `absences.absence_item_id` for absence rows, or a corridor pseudo-id for corridor rows. |
+| F | `assignment_type` | `absence`, `corridor_lower`, or `corridor_upper`. |
+| G | `row_id` | Parent `form_data.row_id` for absence rows; blank for corridor rows. |
+| H | `teacher_code` | Teacher assigned to the guard duty. |
+| I | `created_at` | Creation timestamp. |
+| J | `updated_at` | Last update timestamp. |
+
+Corridor pseudo-ids:
+
+- `corridor-lower:{date}:{time}`
+- `corridor-upper:{date}:{time}`
+
+## Write Rules
+
+When creating a new absence:
+
+1. Write the parent row to `form_data`.
+2. Use its `row_id` to write selected schedule rows to `absences`.
+3. Use its `row_id` to write recovery rows to `recovery`.
+
+When updating an existing absence:
+
+1. Update the parent row in `form_data`.
+2. Delete or clear existing `absences` child rows for that `row_id`.
+3. Rewrite the current selected schedule rows in `absences`.
+4. Delete or clear existing `recovery` child rows for that `row_id`.
+5. Rewrite the current recovery rows in `recovery`.
+
+This replacement strategy is the default until historical child-row tracking is explicitly required.
+
+When saving control-panel guard-duty assignments:
+
+1. Delete existing `profes_guardia` rows for the selected `assignment_date` and `time`.
+2. Write one row per nonempty guard assignment.
+3. Use the explicit `profes_guardia` headers above.

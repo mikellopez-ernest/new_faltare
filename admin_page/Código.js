@@ -27,7 +27,6 @@ const FORM_DATA_COLUMNS = [
   'professor_acompanyant',
   'absence_date',
   'multi_day',
-  'selected_schedule_items_json',
   'reincorporation_date',
   'multi_day_student_work',
   'motiu',
@@ -35,7 +34,6 @@ const FORM_DATA_COLUMNS = [
   'context',
   'hores',
   'hores_a_recuperar',
-  'recovery_items_json',
   'permis_llicencia_absencia',
   'document_file_id',
   'document_file_url',
@@ -64,7 +62,7 @@ function getAdminPageData() {
   const formSheet = openTableSheet_(tableRegistry, TABLE_NAMES.ABSENCE_FORM);
   const professorsSheet = openTableSheet_(tableRegistry, TABLE_NAMES.PROFESSORS_DATA);
   const teacherByCode = buildTeacherByCode_(readSheetDisplayValues_(professorsSheet, 11));
-  const rows = readFormDataRows_(readSheetDisplayValues_(formSheet, FORM_DATA_COLUMNS.length), teacherByCode);
+  const rows = readFormDataRows_(readSheetDisplayValues_(formSheet), teacherByCode);
 
   return {
     rows: rows,
@@ -230,7 +228,7 @@ function readSheetDisplayValues_(sheet, columnCount) {
     return [];
   }
 
-  return sheet.getRange(1, 1, lastRow, columnCount).getDisplayValues();
+  return sheet.getRange(1, 1, lastRow, columnCount || sheet.getLastColumn()).getDisplayValues();
 }
 
 function getManagedColumn_(sheet) {

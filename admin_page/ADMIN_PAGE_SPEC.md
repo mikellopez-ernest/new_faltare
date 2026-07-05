@@ -4,10 +4,15 @@
 
 `admin_page` is an Apps Script web endpoint for reviewing rows submitted through `attendance_form`.
 
-The endpoint shows an in-memory table built from:
+The endpoint uses the normalized `Faltaré` data model:
 
 - `Faltaré` -> `form_data`
+- `Faltaré` -> `absences`
+- `Faltaré` -> `recovery`
+- `Faltaré` -> `profes_guardia`
 - `Dades de professors` -> `Llista`
+
+The current visible table is built from `form_data` plus `Dades de professors -> Llista`. Future views that need selected classes, recovery dates, or guard-duty assignments must read `absences`, `recovery`, and `profes_guardia` directly.
 
 Both logical tables must be resolved through the registry spreadsheet described in `PROJECT_CONTEXT.md` and `ARCHITECTURE.md`.
 
@@ -28,16 +33,29 @@ Column B in registry sheet `tables` is always a spreadsheet ID, never a sheet na
 
 | Logical table | Sheet |
 | --- | --- |
-| `Faltaré` | `form_data` |
+| `Faltaré` | `form_data`, `absences`, `recovery`, `profes_guardia` |
 | `Dades de professors` | `Llista` |
 
-`Faltaré -> form_data` contains an extra column:
+`Faltaré -> form_data` contains:
 
 | Column | Header |
 | --- | --- |
-| AA | `managed` |
+| Y | `managed` |
 
 `managed` is interpreted as boolean. Empty/FALSE/no/0 values mean not managed.
+
+`Faltaré -> form_data` does not store these old JSON fields in the current normalized schema:
+
+- `selected_schedule_items_json`
+- `recovery_items_json`
+
+Schedule/class rows live in `Faltaré -> absences`.
+
+Recovery date/time rows live in `Faltaré -> recovery`.
+
+Guard-duty assignments live in `Faltaré -> profes_guardia`.
+
+`absences` and `recovery` relate to `form_data` with `row_id`. `profes_guardia` relates to absence/corridor assignment identifiers and stores the assigned guard teacher code.
 
 ## Data Loading
 
@@ -46,8 +64,10 @@ When the endpoint opens:
 1. Server reads the full `Faltaré -> form_data` sheet.
 2. Server reads the full `Dades de professors -> Llista` sheet.
 3. Server maps teacher code from `form_data.teacher_code` to the full teacher name from `Llista`.
-4. Client stores all returned rows in memory.
+4. Client stores all returned parent rows in memory.
 5. Filtering and sorting happen in the browser without re-reading the database.
+
+For the current visible table, `admin_page` does not need to load `absences`, `recovery`, or `profes_guardia`. Any view that needs selected classes, recovery dates, or guard-duty assignments must read the normalized sheets directly instead of parsing JSON from `form_data`.
 
 Teacher name resolution from `Dades de professors -> Llista`:
 

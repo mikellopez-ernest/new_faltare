@@ -17,6 +17,12 @@ const TABLE_SHEETS = {
   [TABLE_NAMES.ABSENCE_FORM]: 'form_data',
 };
 
+const FALTARE_SHEETS = {
+  FORM_DATA: 'form_data',
+  ABSENCES: 'absences',
+  RECOVERY: 'recovery',
+};
+
 const ACTIONS = {
   CREATE_GUARD_NOTICE: 'Avisar que genero guàrdia',
   UPDATE_GUARD_NOTICE: 'Actualitzar una guàrdia ja generada',
@@ -54,7 +60,6 @@ const FORM_DATA_HEADERS = [
   'professor_acompanyant',
   'absence_date',
   'multi_day',
-  'selected_schedule_items_json',
   'reincorporation_date',
   'multi_day_student_work',
   'motiu',
@@ -62,13 +67,44 @@ const FORM_DATA_HEADERS = [
   'context',
   'hores',
   'hores_a_recuperar',
-  'recovery_items_json',
   'permis_llicencia_absencia',
   'document_file_id',
   'document_file_url',
   'document_file_name',
   'confirmation_ok',
   'status',
+  'managed',
+];
+
+const LEGACY_FORM_DATA_HEADERS_TO_DELETE = [
+  'selected_schedule_items_json',
+  'recovery_items_json',
+];
+
+const ABSENCE_HEADERS = [
+  'row_id',
+  'absence_item_id',
+  'item_index',
+  'time',
+  'subject_code',
+  'subject_name',
+  'groups',
+  'classrooms',
+  'schedule_row_ids',
+  'student_work',
+  'has_group',
+  'created_at',
+  'updated_at',
+];
+
+const RECOVERY_HEADERS = [
+  'row_id',
+  'recovery_item_id',
+  'item_index',
+  'date',
+  'time',
+  'created_at',
+  'updated_at',
 ];
 
 const REASONS = [
@@ -211,8 +247,13 @@ function submitAttendanceForm(payload) {
     throw new Error('No s\'ha trobat el professor o professora seleccionat.');
   }
 
-  const formSheet = openTableSheet_(loadTableRegistry_(), TABLE_NAMES.ABSENCE_FORM);
+  const tableRegistry = loadTableRegistry_();
+  const formSheet = openFaltareSheet_(tableRegistry, FALTARE_SHEETS.FORM_DATA);
+  const absencesSheet = openFaltareSheet_(tableRegistry, FALTARE_SHEETS.ABSENCES);
+  const recoverySheet = openFaltareSheet_(tableRegistry, FALTARE_SHEETS.RECOVERY);
   ensureFormDataHeaders_(formSheet);
+  ensureSheetHeaders_(absencesSheet, ABSENCE_HEADERS, 'Faltaré/absences');
+  ensureSheetHeaders_(recoverySheet, RECOVERY_HEADERS, 'Faltaré/recovery');
 
   const isUpdate = Boolean(payload.editRowId);
   const rowNumber = isUpdate ? Number(payload.editRowId) : Math.max(formSheet.getLastRow() + 1, 2);
@@ -243,7 +284,6 @@ function submitAttendanceForm(payload) {
     professor_acompanyant: payload.professorAcompanyant,
     absence_date: payload.absenceDate,
     multi_day: payload.multiDay,
-    selected_schedule_items_json: JSON.stringify(payload.selectedScheduleItems || []),
     reincorporation_date: payload.reincorporationDate || '',
     multi_day_student_work: payload.multiDayStudentWork || '',
     motiu: payload.motiu,
@@ -251,13 +291,13 @@ function submitAttendanceForm(payload) {
     context: payload.context || '',
     hores: payload.hores || '',
     hores_a_recuperar: payload.horesARecuperar || '',
-    recovery_items_json: JSON.stringify(payload.recoveryItems || []),
     permis_llicencia_absencia: payload.permisLlicenciaAbsencia || '',
     document_file_id: fileInfo.id,
     document_file_url: fileInfo.url,
     document_file_name: fileInfo.name,
     confirmation_ok: payload.confirmationOk ? 'TRUE' : 'FALSE',
     status: isUpdate ? 'updated' : 'submitted',
+    managed: existingValues.managed || '',
   };
 
   const row = FORM_DATA_HEADERS.map(function(header) {
@@ -265,8 +305,16 @@ function submitAttendanceForm(payload) {
   });
 
   formSheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
+  replaceAbsenceRows_(absencesSheet, rowNumber, payload.selectedScheduleItems || []);
+  replaceRecoveryRows_(recoverySheet, rowNumber, payload.recoveryItems || []);
 
-  const confirmationEmailTemplate = buildConfirmationEmailTemplate_(valuesByHeader, fileInfo, isUpdate);
+  const confirmationEmailTemplate = buildConfirmationEmailTemplate_(
+    valuesByHeader,
+    fileInfo,
+    isUpdate,
+    payload.selectedScheduleItems || [],
+    payload.recoveryItems || []
+  );
   sendConfirmationEmail_(confirmationEmailTemplate);
 
   return {
@@ -291,8 +339,8 @@ function sendConfirmationEmail_(template) {
   });
 }
 
-function buildConfirmationEmailTemplate_(submission, fileInfo, isUpdate) {
-  const tags = buildConfirmationEmailTags_(submission, fileInfo, isUpdate);
+function buildConfirmationEmailTemplate_(submission, fileInfo, isUpdate, selectedScheduleItems, recoveryItems) {
+  const tags = buildConfirmationEmailTags_(submission, fileInfo, isUpdate, selectedScheduleItems, recoveryItems);
 
   return {
     to: submission.adreca_electronica,
@@ -302,10 +350,10 @@ function buildConfirmationEmailTemplate_(submission, fileInfo, isUpdate) {
   };
 }
 
-function buildConfirmationEmailTags_(submission, fileInfo, isUpdate) {
+function buildConfirmationEmailTags_(submission, fileInfo, isUpdate, selectedScheduleItems, recoveryItems) {
   const route = getReasonRoute_(submission.motiu);
-  const selectedScheduleItems = parseJson_(submission.selected_schedule_items_json, []);
-  const recoveryItems = parseJson_(submission.recovery_items_json, []);
+  selectedScheduleItems = selectedScheduleItems || [];
+  recoveryItems = recoveryItems || [];
   const title = isUpdate ? 'Actualització del Faltaré' : 'Confirmació del Faltaré';
   const scheduleText = selectedScheduleItems.length
     ? selectedScheduleItems.map(formatScheduleItemText_).join('\n')
@@ -381,7 +429,7 @@ function getSubmissionsForTeacher(teacherEmail) {
     throw new Error('Cal seleccionar el professor o professora.');
   }
 
-  const formSheet = openTableSheet_(loadTableRegistry_(), TABLE_NAMES.ABSENCE_FORM);
+  const formSheet = openFaltareSheet_(loadTableRegistry_(), FALTARE_SHEETS.FORM_DATA);
   ensureFormDataHeaders_(formSheet);
   const values = formSheet.getDataRange().getDisplayValues();
 
@@ -414,8 +462,13 @@ function getSubmissionForEdit(rowId) {
     throw new Error('El registre seleccionat no és vàlid.');
   }
 
-  const formSheet = openTableSheet_(loadTableRegistry_(), TABLE_NAMES.ABSENCE_FORM);
+  const tableRegistry = loadTableRegistry_();
+  const formSheet = openFaltareSheet_(tableRegistry, FALTARE_SHEETS.FORM_DATA);
+  const absencesSheet = openFaltareSheet_(tableRegistry, FALTARE_SHEETS.ABSENCES);
+  const recoverySheet = openFaltareSheet_(tableRegistry, FALTARE_SHEETS.RECOVERY);
   ensureFormDataHeaders_(formSheet);
+  ensureSheetHeaders_(absencesSheet, ABSENCE_HEADERS, 'Faltaré/absences');
+  ensureSheetHeaders_(recoverySheet, RECOVERY_HEADERS, 'Faltaré/recovery');
   const rowObject = getFormRowObject_(formSheet, rowNumber);
 
   return {
@@ -425,14 +478,14 @@ function getSubmissionForEdit(rowId) {
     professorAcompanyant: rowObject.professor_acompanyant,
     absenceDate: rowObject.absence_date,
     multiDay: rowObject.multi_day,
-    selectedScheduleItems: parseJson_(rowObject.selected_schedule_items_json, []),
+    selectedScheduleItems: loadAbsenceItemsForRow_(absencesSheet, rowNumber),
     reincorporationDate: rowObject.reincorporation_date,
     multiDayStudentWork: rowObject.multi_day_student_work,
     motiu: rowObject.motiu,
     context: rowObject.context,
     hores: rowObject.hores,
     horesARecuperar: rowObject.hores_a_recuperar,
-    recoveryItems: parseJson_(rowObject.recovery_items_json, []),
+    recoveryItems: loadRecoveryItemsForRow_(recoverySheet, rowNumber),
     permisLlicenciaAbsencia: rowObject.permis_llicencia_absencia,
     confirmationOk: parseBoolean_(rowObject.confirmation_ok),
   };
@@ -516,6 +569,26 @@ function openTableSheet_(tableRegistry, tableName) {
   if (!sheet) {
     throw new Error(
       'Table "' + tableName + '" points to spreadsheet ID "' + spreadsheetId +
+      '", but sheet "' + sheetName + '" was not found.'
+    );
+  }
+
+  return sheet;
+}
+
+function openFaltareSheet_(tableRegistry, sheetName) {
+  const spreadsheetId = tableRegistry[TABLE_NAMES.ABSENCE_FORM];
+
+  if (!spreadsheetId) {
+    throw new Error('Table "' + TABLE_NAMES.ABSENCE_FORM + '" was not found in the table registry.');
+  }
+
+  const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  const sheet = spreadsheet.getSheetByName(sheetName);
+
+  if (!sheet) {
+    throw new Error(
+      'Table "' + TABLE_NAMES.ABSENCE_FORM + '" points to spreadsheet ID "' + spreadsheetId +
       '", but sheet "' + sheetName + '" was not found.'
     );
   }
@@ -643,9 +716,131 @@ function groupScheduleItems_(items) {
   });
 }
 
+function replaceAbsenceRows_(sheet, rowId, items) {
+  deleteChildRowsByRowId_(sheet, rowId);
+
+  if (!items.length) {
+    return;
+  }
+
+  const now = new Date();
+  const rows = items.map(function(item, index) {
+    return [
+      rowId,
+      rowId + '-' + (index + 1),
+      index + 1,
+      item.time || '',
+      item.subjectCode || '',
+      item.subjectName || '',
+      arrayToCsv_(item.groups || item.groupsText),
+      arrayToCsv_(item.classrooms),
+      arrayToCsv_(item.rowIds || item.rowId),
+      item.studentWork || '',
+      item.hasGroup ? 'TRUE' : 'FALSE',
+      now,
+      now,
+    ];
+  });
+
+  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, ABSENCE_HEADERS.length).setValues(rows);
+}
+
+function replaceRecoveryRows_(sheet, rowId, items) {
+  deleteChildRowsByRowId_(sheet, rowId);
+
+  if (!items.length) {
+    return;
+  }
+
+  const now = new Date();
+  const rows = items.map(function(item, index) {
+    return [
+      rowId,
+      rowId + '-' + (index + 1),
+      index + 1,
+      item.date || '',
+      item.time || '',
+      now,
+      now,
+    ];
+  });
+
+  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, RECOVERY_HEADERS.length).setValues(rows);
+}
+
+function deleteChildRowsByRowId_(sheet, rowId) {
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 2) {
+    return;
+  }
+
+  const values = sheet.getRange(2, 1, lastRow - 1, 1).getDisplayValues();
+
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    if (String(values[index][0] || '').trim() === String(rowId)) {
+      sheet.deleteRow(index + 2);
+    }
+  }
+}
+
+function loadAbsenceItemsForRow_(sheet, rowId) {
+  const rows = readChildObjectsByRowId_(sheet, ABSENCE_HEADERS, rowId);
+
+  return rows.map(function(row) {
+    const groups = csvToArray_(row.groups);
+
+    return {
+      rowIds: csvToArray_(row.schedule_row_ids),
+      groups: groups,
+      groupsText: row.groups,
+      classrooms: csvToArray_(row.classrooms),
+      subjectCode: row.subject_code,
+      subjectName: row.subject_name,
+      time: row.time,
+      studentWork: row.student_work,
+      hasGroup: parseBoolean_(row.has_group) || groups.length > 0,
+      savedSelected: true,
+    };
+  });
+}
+
+function loadRecoveryItemsForRow_(sheet, rowId) {
+  return readChildObjectsByRowId_(sheet, RECOVERY_HEADERS, rowId).map(function(row) {
+    return {
+      date: row.date,
+      time: row.time,
+    };
+  });
+}
+
+function readChildObjectsByRowId_(sheet, headers, rowId) {
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 2) {
+    return [];
+  }
+
+  return sheet.getRange(2, 1, lastRow - 1, headers.length).getDisplayValues()
+    .map(function(row) {
+      return headers.reduce(function(object, header, index) {
+        object[header] = row[index] || '';
+        return object;
+      }, {});
+    })
+    .filter(function(row) {
+      return String(row.row_id || '').trim() === String(rowId);
+    })
+    .sort(function(a, b) {
+      return Number(a.item_index || 0) - Number(b.item_index || 0);
+    });
+}
+
 function ensureFormDataHeaders_(sheet) {
-  const lastColumn = Math.max(sheet.getLastColumn(), FORM_DATA_HEADERS.length);
-  const firstRow = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0];
+  migrateLegacyFormDataHeaders_(sheet);
+
+  let lastColumn = Math.max(sheet.getLastColumn(), FORM_DATA_HEADERS.length);
+  let firstRow = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0];
   const hasAnyHeader = firstRow.some(function(value) {
     return String(value || '').trim();
   });
@@ -654,6 +849,11 @@ function ensureFormDataHeaders_(sheet) {
     sheet.getRange(1, 1, 1, FORM_DATA_HEADERS.length).setValues([FORM_DATA_HEADERS]);
     return;
   }
+
+  appendMissingFormDataHeaders_(sheet);
+
+  lastColumn = Math.max(sheet.getLastColumn(), FORM_DATA_HEADERS.length);
+  firstRow = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0];
 
   const currentHeaders = firstRow.slice(0, FORM_DATA_HEADERS.length).map(function(value) {
     return String(value || '').trim();
@@ -665,6 +865,62 @@ function ensureFormDataHeaders_(sheet) {
 
   if (!hasExpectedHeaders) {
     throw new Error('The Faltaré/form_data sheet headers do not match the expected schema.');
+  }
+}
+
+function migrateLegacyFormDataHeaders_(sheet) {
+  const lastColumn = sheet.getLastColumn();
+
+  if (!lastColumn) {
+    return;
+  }
+
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0].map(function(value) {
+    return String(value || '').trim();
+  });
+
+  for (let index = headers.length - 1; index >= 0; index -= 1) {
+    if (LEGACY_FORM_DATA_HEADERS_TO_DELETE.indexOf(headers[index]) !== -1) {
+      sheet.deleteColumn(index + 1);
+    }
+  }
+}
+
+function appendMissingFormDataHeaders_(sheet) {
+  const lastColumn = Math.max(sheet.getLastColumn(), 1);
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0].map(function(value) {
+    return String(value || '').trim();
+  });
+
+  FORM_DATA_HEADERS.forEach(function(header) {
+    if (headers.indexOf(header) === -1) {
+      sheet.getRange(1, sheet.getLastColumn() + 1).setValue(header);
+      headers.push(header);
+    }
+  });
+}
+
+function ensureSheetHeaders_(sheet, expectedHeaders, label) {
+  const lastColumn = Math.max(sheet.getLastColumn(), expectedHeaders.length);
+  const firstRow = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0];
+  const hasAnyHeader = firstRow.some(function(value) {
+    return String(value || '').trim();
+  });
+
+  if (!hasAnyHeader) {
+    sheet.getRange(1, 1, 1, expectedHeaders.length).setValues([expectedHeaders]);
+    return;
+  }
+
+  const currentHeaders = firstRow.slice(0, expectedHeaders.length).map(function(value) {
+    return String(value || '').trim();
+  });
+  const hasExpectedHeaders = expectedHeaders.every(function(header, index) {
+    return currentHeaders[index] === header;
+  });
+
+  if (!hasExpectedHeaders) {
+    throw new Error('The ' + label + ' sheet headers do not match the expected schema.');
   }
 }
 
@@ -755,6 +1011,10 @@ function validateSubmission_(payload) {
     payload.recoveryItems.forEach(function(item, index) {
       required_(item.date, 'Cal indicar la data de recuperació ' + (index + 1) + '.');
       required_(item.time, 'Cal indicar l\'hora de recuperació ' + (index + 1) + '.');
+
+      if (item.date < payload.absenceDate) {
+        throw new Error('La data de recuperació ' + (index + 1) + ' no pot ser anterior a la data de l\'absència.');
+      }
     });
   }
 
@@ -908,6 +1168,22 @@ function pushUnique_(list, value) {
   if (cleanValue && list.indexOf(cleanValue) === -1) {
     list.push(cleanValue);
   }
+}
+
+function arrayToCsv_(value) {
+  if (Array.isArray(value)) {
+    return value.map(function(item) {
+      return String(item || '').trim();
+    }).filter(Boolean).join(', ');
+  }
+
+  return String(value || '').trim();
+}
+
+function csvToArray_(value) {
+  return String(value || '').split(',').map(function(item) {
+    return item.trim();
+  }).filter(Boolean);
 }
 
 function required_(value, message) {
