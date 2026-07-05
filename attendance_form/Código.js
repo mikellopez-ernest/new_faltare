@@ -95,6 +95,7 @@ const ABSENCE_HEADERS = [
   'has_group',
   'created_at',
   'updated_at',
+  'no_cover_required',
 ];
 
 const RECOVERY_HEADERS = [
@@ -739,6 +740,7 @@ function replaceAbsenceRows_(sheet, rowId, items) {
       item.hasGroup ? 'TRUE' : 'FALSE',
       now,
       now,
+      item.noCoverRequired ? 'TRUE' : 'FALSE',
     ];
   });
 
@@ -800,6 +802,7 @@ function loadAbsenceItemsForRow_(sheet, rowId) {
       time: row.time,
       studentWork: row.student_work,
       hasGroup: parseBoolean_(row.has_group) || groups.length > 0,
+      noCoverRequired: parseBoolean_(row.no_cover_required),
       savedSelected: true,
     };
   });
@@ -902,7 +905,7 @@ function appendMissingFormDataHeaders_(sheet) {
 
 function ensureSheetHeaders_(sheet, expectedHeaders, label) {
   const lastColumn = Math.max(sheet.getLastColumn(), expectedHeaders.length);
-  const firstRow = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0];
+  let firstRow = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0];
   const hasAnyHeader = firstRow.some(function(value) {
     return String(value || '').trim();
   });
@@ -911,6 +914,13 @@ function ensureSheetHeaders_(sheet, expectedHeaders, label) {
     sheet.getRange(1, 1, 1, expectedHeaders.length).setValues([expectedHeaders]);
     return;
   }
+
+  expectedHeaders.forEach(function(header, index) {
+    if (!String(firstRow[index] || '').trim()) {
+      sheet.getRange(1, index + 1).setValue(header);
+      firstRow[index] = header;
+    }
+  });
 
   const currentHeaders = firstRow.slice(0, expectedHeaders.length).map(function(value) {
     return String(value || '').trim();
@@ -1094,7 +1104,8 @@ function formatDisplayDateTime_(value) {
 function formatScheduleItemText_(item) {
   const groups = item.groupsText || (Array.isArray(item.groups) ? item.groups.join(', ') : '');
   const studentWork = item.studentWork ? ' | Feina: ' + item.studentWork : '';
-  return '- ' + [item.time, item.subjectName || item.subjectCode, groups].filter(Boolean).join(' | ') + studentWork;
+  const noCover = item.noCoverRequired ? ' | No cal cobrir' : '';
+  return '- ' + [item.time, item.subjectName || item.subjectCode, groups].filter(Boolean).join(' | ') + studentWork + noCover;
 }
 
 function formatScheduleItemsHtml_(items) {
@@ -1104,12 +1115,15 @@ function formatScheduleItemsHtml_(items) {
 
   const rows = items.map(function(item) {
     const groups = item.groupsText || (Array.isArray(item.groups) ? item.groups.join(', ') : '');
+    const studentWork = item.noCoverRequired
+      ? '<strong>No cal cobrir</strong>' + (item.studentWork ? '<br>' + nl2br_(item.studentWork) : '')
+      : nl2br_(item.studentWork || '');
 
     return '<tr>' +
       '<td style="border-bottom:1px solid #d7dde5;padding:6px;">' + escapeHtml_(item.time || '') + '</td>' +
       '<td style="border-bottom:1px solid #d7dde5;padding:6px;">' + escapeHtml_(item.subjectName || item.subjectCode || '') + '</td>' +
       '<td style="border-bottom:1px solid #d7dde5;padding:6px;">' + escapeHtml_(groups) + '</td>' +
-      '<td style="border-bottom:1px solid #d7dde5;padding:6px;">' + nl2br_(item.studentWork || '') + '</td>' +
+      '<td style="border-bottom:1px solid #d7dde5;padding:6px;">' + studentWork + '</td>' +
       '</tr>';
   }).join('');
 

@@ -317,6 +317,20 @@
         font-weight: 700;
       }
 
+      .guard-no-cover {
+        color: #7a271a;
+        font-weight: 800;
+      }
+
+      .management-no-cover td {
+        opacity: 0.72;
+        text-decoration: line-through;
+      }
+
+      .management-no-cover td:last-child {
+        text-decoration: none;
+      }
+
       .guard-select {
         width: 100%;
         min-width: 210px;
@@ -436,6 +450,9 @@
     </div>
 
     <script>
+      const NO_COVER_CODE = '__NO_CAL_COBRIR__';
+      const NO_COVER_LABEL = 'No cal cobrir';
+
       const state = {
         loading: false,
       };
@@ -513,11 +530,13 @@
 
         const rowIndex = Number(select.dataset.rowIndex);
         const selectedCode = select.value;
-        const selectedCandidate = managementData.candidates.filter(function(candidate) {
-          return candidate.code === selectedCode;
-        })[0];
+        const selectedCandidate = selectedCode === NO_COVER_CODE
+          ? { code: NO_COVER_CODE, name: NO_COVER_LABEL }
+          : managementData.candidates.filter(function(candidate) {
+            return candidate.code === selectedCode;
+          })[0];
 
-        if (selectedCode) {
+        if (selectedCode && selectedCode !== NO_COVER_CODE) {
           managementData.rows.forEach(function(row, index) {
             if (index !== rowIndex && row.guardTeacherCode === selectedCode) {
               row.guardTeacherCode = '';
@@ -528,6 +547,7 @@
 
         managementData.rows[rowIndex].guardTeacherCode = selectedCode;
         managementData.rows[rowIndex].guardTeacherName = selectedCandidate ? selectedCandidate.name : '';
+        managementData.rows[rowIndex].noCoverRequired = selectedCode === NO_COVER_CODE;
         renderManagementRows();
       });
 
@@ -748,16 +768,17 @@
           const guardCell = managementEditMode
             ? renderGuardSelect(row, index)
             : renderGuardText(row);
+          const rowClass = row.guardTeacherCode === NO_COVER_CODE ? ' class="management-no-cover"' : '';
 
           if (row.type === 'corridor_lower' || row.type === 'corridor_upper') {
-            return '<tr>' +
+            return '<tr' + rowClass + '>' +
               '<td></td>' +
               '<td colspan="4" class="merged-task">' + escapeHtml(row.mergedText) + '</td>' +
               '<td>' + guardCell + '</td>' +
               '</tr>';
           }
 
-          return '<tr>' +
+          return '<tr' + rowClass + '>' +
             '<td>' + escapeHtml(row.absentTeacher) + '</td>' +
             '<td>' + escapeHtml(row.subject) + '</td>' +
             '<td>' + escapeHtml(row.group) + '</td>' +
@@ -774,15 +795,25 @@
       }
 
       function renderGuardText(row) {
+        if (row.guardTeacherCode === NO_COVER_CODE) {
+          return '<span class="guard-no-cover">' + NO_COVER_LABEL + '</span>';
+        }
+
         return row.guardTeacherName
           ? escapeHtml(row.guardTeacherName)
           : '<span class="guard-empty">Sense assignar</span>';
       }
 
       function renderGuardSelect(row, rowIndex) {
-        const options = ['<option value="">Sense assignar</option>'].concat(managementData.candidates.map(function(candidate) {
+        const noCoverSelected = row.guardTeacherCode === NO_COVER_CODE ? ' selected' : '';
+        const options = [
+          '<option value="' + NO_COVER_CODE + '"' + noCoverSelected + '>' + NO_COVER_LABEL + '</option>',
+          '<option value="">Sense assignar</option>',
+        ].concat(managementData.candidates.map(function(candidate) {
           const selected = candidate.code === row.guardTeacherCode ? ' selected' : '';
-          return '<option value="' + escapeHtml(candidate.code) + '"' + selected + '>' + escapeHtml(candidate.name) + '</option>';
+          const label = (candidate.preferredRecovery ? 'Guàrdia preferent: ' : '') +
+            candidate.name + ' (' + Number(candidate.count || 0) + ')';
+          return '<option value="' + escapeHtml(candidate.code) + '"' + selected + '>' + escapeHtml(label) + '</option>';
         }));
 
         return '<select class="guard-select" data-row-index="' + rowIndex + '">' + options.join('') + '</select>';
@@ -812,6 +843,10 @@
             return;
           }
 
+          if (code === NO_COVER_CODE) {
+            return;
+          }
+
           if (usedCodes[code]) {
             duplicate = true;
           }
@@ -823,8 +858,12 @@
           return false;
         }
 
-        if (managementData.candidates.length >= managementData.rows.length) {
-          return managementData.rows.every(function(row) {
+        const rowsNeedingTeacher = managementData.rows.filter(function(row) {
+          return row.guardTeacherCode !== NO_COVER_CODE;
+        });
+
+        if (managementData.candidates.length >= rowsNeedingTeacher.length) {
+          return rowsNeedingTeacher.every(function(row) {
             return Boolean(row.guardTeacherCode);
           });
         }

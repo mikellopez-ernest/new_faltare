@@ -126,6 +126,10 @@ Recovery candidates are resolved by joining:
 
 Recovery teachers are shown as unique teacher names, one per line, under the text `Guàrdia preferent:`.
 
+For the management popup, recovery teachers matching the selected date/time must also be added to the guard-teacher dropdown candidate pool even if they do not have a `GUARDIA` timetable row at that slot.
+
+Recovery teachers are preferred candidates for that exact date/time. They are proposed before ordinary `GUARDIA` candidates and therefore receive the first automatic assignments, unless the row is `No cal cobrir`.
+
 ## Gestionar Popup
 
 Clicking `Gestionar` for a time slot opens a modal/popup window for:
@@ -147,6 +151,8 @@ The popup table shows:
 | `AULA` | Classroom from `Faltaré -> absences`. |
 | `TASQUES` | Student work from `Faltaré -> absences.student_work`. |
 | `GUÀRDIA` | Proposed or manually selected teacher who will substitute the absent teacher. |
+
+If an absence row has `Faltaré -> absences.no_cover_required` set to `TRUE`, its `GUÀRDIA` value defaults to `No cal cobrir`.
 
 The popup does not show a gear icon in each row.
 
@@ -209,6 +215,8 @@ For the selected weekday and time slot, order eligible guard teachers by:
 
 The first proposed teacher is assigned to the first popup row by substitution priority, the second teacher to the second row, and so on.
 
+Rows marked `No cal cobrir` by the teacher are skipped when automatically consuming proposed guard teachers.
+
 If there are more rows to cover than eligible teachers, the remaining rows have an empty `GUÀRDIA` value.
 
 ## Manual Guard Teacher Editing
@@ -217,14 +225,20 @@ Clicking the popup header gear icon changes the popup into assignment edit mode.
 
 In edit mode, each `GUÀRDIA` text cell becomes a dropdown combo.
 
-Each dropdown contains the eligible guard-teacher pool for that date/time.
+Each dropdown contains `No cal cobrir` as the first option, followed by an empty `Sense assignar` option, followed by the eligible guard-teacher pool for that date/time.
+
+Teacher options must show the number of previous substitutions for the same weekday and time slot next to the teacher name, for example `Mikel López Villarroya (7)`.
+
+Preferred recovery teachers should be visually identified in the option text, for example `Guàrdia preferent: Mikel López Villarroya (7)`.
 
 Rules:
 
+- `No cal cobrir` is not a teacher assignment and can be selected in more than one row.
 - A teacher can only appear in one popup row at a time.
 - If a user selects a teacher who is already assigned to another row, the previous row becomes empty.
 - A row with an empty `GUÀRDIA` value is visually marked as incomplete.
 - The popup cannot be saved while any selected/proposed teacher has no row or any required row has no teacher, except when there are not enough eligible guard teachers.
+- Rows with `No cal cobrir` do not require a teacher and do not consume an eligible guard teacher.
 
 When there are not enough eligible guard teachers:
 
@@ -233,6 +247,8 @@ When there are not enough eligible guard teachers:
 - The save rule is therefore: every eligible guard teacher must be placed somewhere, and no teacher may be duplicated.
 
 Saving replaces all existing `profes_guardia` rows for the selected date and time with the popup's current nonempty assignments.
+
+When `No cal cobrir` is saved, `profes_guardia.teacher_code` stores the special token `__NO_CAL_COBRIR__`.
 
 ## `profes_guardia` Sheet
 
@@ -254,7 +270,7 @@ To support corridor rows and the ordering rules, the implementation should use t
 | E | `absence_id` | `absences.absence_item_id` for absence rows, or a corridor pseudo-id for corridor rows. |
 | F | `assignment_type` | `absence`, `corridor_lower`, or `corridor_upper`. |
 | G | `row_id` | Parent `form_data.row_id` for absence rows; blank for corridor rows. |
-| H | `teacher_code` | Teacher assigned to the guard duty. |
+| H | `teacher_code` | Teacher assigned to the guard duty, or `__NO_CAL_COBRIR__` for a no-cover row. |
 | I | `created_at` | Creation timestamp. |
 | J | `updated_at` | Last update timestamp. |
 

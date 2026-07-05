@@ -243,7 +243,8 @@ Schedule table columns:
 | `1` | Checkbox, default `false` |
 | `2` | Time, derived from `SCHEDULE SLOT` |
 | `3` | Subject name, resolved through `Càrrega lectiva` / `assignatures` |
-| `4` | Text box with placeholder `Feina per l'alumnat`, only when the grouped row has an associated group |
+| `4` | `No cal cobrir` toggle button |
+| `5` | Text box with placeholder `Feina per l'alumnat`, only when the grouped row has an associated group |
 
 The checkbox column header must also show a checkbox that selects or unselects all classes shown for the day.
 
@@ -268,6 +269,10 @@ Default checked rows:
 For example, for `Mikel López (LOPINF)` on Thursday, the `DIGITALITZACIÓ` row grouping groups `4A`, `4B`, `4C`, `4D`, and `4E` must show the text box.
 
 Checking a row means the user wants to generate guard duty for that class/hour. Unchecked rows are ignored for guard-duty generation.
+
+The `No cal cobrir` toggle marks a checked absence row as not requiring a substitute teacher. The UI shows it as a compact icon button and strikes through the visible row when active.
+
+`No cal cobrir` does not uncheck the row and does not remove it from the absence-hour count. It is stored in `Faltaré -> absences.no_cover_required` and is consumed by `control_panel`.
 
 `Hores` and `Hores a recuperar` must count only checked schedule rows.
 

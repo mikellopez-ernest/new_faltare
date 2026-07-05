@@ -224,6 +224,33 @@
       min-height: 48px;
     }
 
+    .schedule-row.no-cover {
+      opacity: 0.68;
+    }
+
+    .schedule-row.no-cover td:nth-child(2),
+    .schedule-row.no-cover td:nth-child(3),
+    .schedule-row.no-cover td:nth-child(5) {
+      text-decoration: line-through;
+    }
+
+    .no-cover-toggle {
+      align-items: center;
+      border-radius: 999px;
+      display: inline-flex;
+      font-size: 18px;
+      height: 34px;
+      justify-content: center;
+      padding: 0;
+      width: 34px;
+    }
+
+    .no-cover-toggle.active {
+      background: #b42318;
+      border-color: #b42318;
+      color: #fff;
+    }
+
     .no-work {
       color: var(--muted);
       font-style: italic;
@@ -1105,12 +1132,15 @@
 
       clearMessage(el.scheduleMessage);
       const rows = state.scheduleItems.map((item, index) => `
-        <tr>
+        <tr class="schedule-row ${item.noCoverRequired ? 'no-cover' : ''}">
           <td><input type="checkbox" class="schedule-check" data-index="${index}" ${isScheduleItemChecked(item) ? 'checked' : ''}></td>
           <td>${escapeHtml(item.time)}</td>
           <td>
             <strong>${escapeHtml(item.subjectName)}</strong><br>
             <span class="help">${escapeHtml(item.groupsText || '')}</span>
+          </td>
+          <td>
+            <button type="button" class="secondary no-cover-toggle ${item.noCoverRequired ? 'active' : ''}" data-index="${index}" title="No cal cobrir" aria-label="No cal cobrir">⊘</button>
           </td>
           <td>${item.hasGroup
             ? `<textarea class="work-input" data-index="${index}" placeholder="Feina per l'alumnat"></textarea>`
@@ -1125,6 +1155,7 @@
               <th><input type="checkbox" id="scheduleSelectAll" title="Selecciona totes les classes del dia"></th>
               <th>Hora</th>
               <th>Assignatura</th>
+              <th>No cal cobrir</th>
               <th>Feina</th>
             </tr>
           </thead>
@@ -1146,6 +1177,16 @@
           const checks = Array.from(document.querySelectorAll('.schedule-check'));
           document.getElementById('scheduleSelectAll').checked = checks.every((item) => item.checked);
           updateCheckedScheduleCount();
+        });
+      });
+
+      document.querySelectorAll('.no-cover-toggle').forEach((button) => {
+        button.addEventListener('click', () => {
+          const index = Number(button.dataset.index);
+          const row = button.closest('.schedule-row');
+          state.scheduleItems[index].noCoverRequired = !state.scheduleItems[index].noCoverRequired;
+          button.classList.toggle('active', state.scheduleItems[index].noCoverRequired);
+          row.classList.toggle('no-cover', state.scheduleItems[index].noCoverRequired);
         });
       });
 
@@ -1275,6 +1316,7 @@
         subjectName: item.subjectName || item.subject || item.subjectCode || '',
         subjectCode: item.subjectCode || '',
         time: item.time || HOUR_OPTIONS[Number(item.slot || 1) - 1] || '',
+        noCoverRequired: Boolean(item.noCoverRequired),
       };
     }
 
@@ -1297,6 +1339,20 @@
 
         if (input) {
           input.value = savedItem.studentWork || '';
+        }
+
+        if (savedItem.noCoverRequired) {
+          const button = document.querySelector(`.no-cover-toggle[data-index="${index}"]`);
+          const row = button ? button.closest('.schedule-row') : null;
+          state.scheduleItems[index].noCoverRequired = true;
+
+          if (button) {
+            button.classList.add('active');
+          }
+
+          if (row) {
+            row.classList.add('no-cover');
+          }
         }
       });
     }
@@ -1408,6 +1464,7 @@
           return {
             ...item,
             studentWork: workInput ? workInput.value : '',
+            noCoverRequired: Boolean(item.noCoverRequired),
           };
         });
 

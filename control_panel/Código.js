@@ -34,6 +34,9 @@ const PROFES_GUARDIA_HEADERS = [
   'updated_at',
 ];
 
+const NO_COVER_CODE = '__NO_CAL_COBRIR__';
+const NO_COVER_LABEL = 'No cal cobrir';
+
 const SCHEDULE_SLOT_TIMES = {
   '1': '08:00',
   '2': '09:00',
@@ -134,6 +137,7 @@ function getManagementSlotData(payload) {
   const tableRegistry = loadTableRegistry_();
   const formDataValues = readSheetValues_(openFaltareSheet_(tableRegistry, FALTARE_SHEETS.FORM_DATA));
   const absenceValues = readSheetValues_(openFaltareSheet_(tableRegistry, FALTARE_SHEETS.ABSENCES));
+  const recoveryValues = readSheetValues_(openFaltareSheet_(tableRegistry, FALTARE_SHEETS.RECOVERY));
   const professorValues = readSheetValues_(openConfiguredTableSheet_(tableRegistry, TABLE_NAMES.PROFESSORS_DATA));
   const scheduleValues = readSheetValues_(openConfiguredTableSheet_(tableRegistry, TABLE_NAMES.SCHEDULES));
   const subjectValues = readSheetValues_(openConfiguredTableSheet_(tableRegistry, TABLE_NAMES.TEACHING_LOAD));
@@ -162,6 +166,7 @@ function getManagementSlotData(payload) {
       group: row.group,
       classroom: row.classroom,
       studentWork: row.studentWork || '',
+      noCoverRequired: Boolean(row.noCoverRequired),
       mergedText: '',
       guardTeacherCode: '',
       guardTeacherName: '',
@@ -176,11 +181,22 @@ function getManagementSlotData(payload) {
     guardHistoryValues,
     selectedDate,
     selectedTime,
-    rows
+    rows,
+    recoveryValues,
+    formDataByRowId
   );
 
-  rows.forEach(function(row, index) {
-    const candidate = candidates[index];
+  let candidateIndex = 0;
+
+  rows.forEach(function(row) {
+    if (row.noCoverRequired) {
+      row.guardTeacherCode = NO_COVER_CODE;
+      row.guardTeacherName = NO_COVER_LABEL;
+      return;
+    }
+
+    const candidate = candidates[candidateIndex];
+    candidateIndex += 1;
 
     if (candidate) {
       row.guardTeacherCode = candidate.code;
@@ -194,7 +210,9 @@ function getManagementSlotData(payload) {
     time: selectedTime,
     rows: rows,
     candidates: candidates,
-    notEnoughTeachers: candidates.length < rows.length,
+    notEnoughTeachers: candidates.length < rows.filter(function(row) {
+      return row.guardTeacherCode !== NO_COVER_CODE;
+    }).length,
   };
 }
 
@@ -385,6 +403,7 @@ function buildAbsencesByTime_(sheetData, formDataByRowId, teachersByCode, select
       group: row.groups || '',
       classroom: row.classrooms || '',
       studentWork: row.student_work || '',
+      noCoverRequired: parseBoolean_(row.no_cover_required),
       source: 'absences',
     });
   });
@@ -457,6 +476,7 @@ function addTimetableFallbackAbsences_(byTime, rowIdsWithChildren, formDataValue
         group: item.groupsText || '',
         classroom: item.classrooms.join(', '),
         studentWork: '',
+        noCoverRequired: false,
         source: 'timetable-fallback',
       });
     });
@@ -558,6 +578,7 @@ function orderManagementRows_(absenceRows, selectedDate, selectedTime) {
     mergedText: 'Passadissos pis inferior i lavabos',
     guardTeacherCode: '',
     guardTeacherName: '',
+    noCoverRequired: false,
     priority: 2,
   });
   rows.push({
@@ -573,6 +594,7 @@ function orderManagementRows_(absenceRows, selectedDate, selectedTime) {
     mergedText: 'Passadissos pis superior i lavabos',
     guardTeacherCode: '',
     guardTeacherName: '',
+    noCoverRequired: false,
     priority: 4,
   });
 
@@ -603,7 +625,7 @@ function getPopupRowPriority_(groupText, type) {
   return 3;
 }
 
-function buildGuardTeacherCandidates_(scheduleValues, subjectValues, teachersByCode, guardHistoryValues, selectedDate, selectedTime, managementRows) {
+function buildGuardTeacherCandidates_(scheduleValues, subjectValues, teachersByCode, guardHistoryValues, selectedDate, selectedTime, managementRows, recoveryValues, formDataByRowId) {
   const dayNumber = getIsoWeekday_(selectedDate);
   const subjects = buildSubjectMap_(subjectValues);
   const absentTeacherCodes = {};
@@ -614,6 +636,11 @@ function buildGuardTeacherCandidates_(scheduleValues, subjectValues, teachersByC
       absentTeacherCodes[normalizeKey_(row.absentTeacherCode)] = true;
     }
   });
+
+  buildRecoveryTeacherCandidates_(recoveryValues, formDataByRowId, teachersByCode, selectedDate, selectedTime, absentTeacherCodes)
+    .forEach(function(candidate) {
+      candidatesByCode[normalizeKey_(candidate.code)] = candidate;
+    });
 
   buildScheduleRows_(scheduleValues).forEach(function(row) {
     const time = SCHEDULE_SLOT_TIMES[String(row.slot)] || normalizeTime_(row.slot);
@@ -637,6 +664,7 @@ function buildGuardTeacherCandidates_(scheduleValues, subjectValues, teachersByC
         code: teacher.code,
         name: teacher.name,
         surname1: teacher.surname1 || '',
+        preferredRecovery: false,
       };
     }
   });
@@ -653,12 +681,52 @@ function buildGuardTeacherCandidates_(scheduleValues, subjectValues, teachersByC
       count: stats.count,
       lastSortValue: stats.lastSortValue,
       surnameInitial: normalizeKey_(candidate.surname1).charAt(0),
+      preferredRecovery: Boolean(candidate.preferredRecovery),
     };
   }).sort(function(a, b) {
-    return Number(a.count) - Number(b.count) ||
+    return Number(b.preferredRecovery) - Number(a.preferredRecovery) ||
+      Number(a.count) - Number(b.count) ||
       Number(a.lastSortValue) - Number(b.lastSortValue) ||
       String(a.surnameInitial || '').localeCompare(String(b.surnameInitial || ''), 'ca') ||
       String(a.name || '').localeCompare(String(b.name || ''), 'ca');
+  });
+}
+
+function buildRecoveryTeacherCandidates_(sheetData, formDataByRowId, teachersByCode, selectedDate, selectedTime, absentTeacherCodes) {
+  const candidatesByCode = {};
+
+  rowsToObjects_(sheetData).forEach(function(row) {
+    if (normalizeDate_(row.date) !== selectedDate || normalizeTime_(row.time) !== selectedTime) {
+      return;
+    }
+
+    const parent = formDataByRowId[normalizeKey_(row.row_id)];
+
+    if (!parent) {
+      return;
+    }
+
+    const teacherCode = String(parent.teacher_code || '').trim();
+    const teacherCodeKey = normalizeKey_(teacherCode);
+
+    if (!teacherCodeKey || absentTeacherCodes[teacherCodeKey]) {
+      return;
+    }
+
+    const teacher = teachersByCode[teacherCodeKey];
+
+    if (teacher && !candidatesByCode[teacherCodeKey]) {
+      candidatesByCode[teacherCodeKey] = {
+        code: teacher.code,
+        name: teacher.name,
+        surname1: teacher.surname1 || '',
+        preferredRecovery: true,
+      };
+    }
+  });
+
+  return Object.keys(candidatesByCode).map(function(codeKey) {
+    return candidatesByCode[codeKey];
   });
 }
 
@@ -672,7 +740,7 @@ function buildGuardHistoryStats_(guardHistoryValues, dayNumber, selectedTime) {
 
     const teacherCodeKey = normalizeKey_(row.teacher_code);
 
-    if (!teacherCodeKey) {
+    if (!teacherCodeKey || teacherCodeKey === normalizeKey_(NO_COVER_CODE)) {
       return;
     }
 
@@ -716,6 +784,12 @@ function applySavedGuardAssignments_(rows, guardHistoryValues, teachersByCode, s
       return;
     }
 
+    if (teacherCode === NO_COVER_CODE) {
+      row.guardTeacherCode = NO_COVER_CODE;
+      row.guardTeacherName = NO_COVER_LABEL;
+      return;
+    }
+
     const teacher = teachersByCode[normalizeKey_(teacherCode)] || {};
     row.guardTeacherCode = teacherCode;
     row.guardTeacherName = teacher.name || teacherCode;
@@ -728,7 +802,7 @@ function validateGuardAssignments_(rows) {
   rows.forEach(function(row) {
     const teacherCode = normalizeKey_(row.guardTeacherCode);
 
-    if (!teacherCode) {
+    if (!teacherCode || teacherCode === normalizeKey_(NO_COVER_CODE)) {
       return;
     }
 
@@ -738,6 +812,10 @@ function validateGuardAssignments_(rows) {
 
     used[teacherCode] = true;
   });
+}
+
+function parseBoolean_(value) {
+  return String(value || '').trim().toLowerCase() === 'true';
 }
 
 function ensureSheetHeaders_(sheet, expectedHeaders) {

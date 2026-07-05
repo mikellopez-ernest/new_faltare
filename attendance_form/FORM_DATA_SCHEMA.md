@@ -79,6 +79,7 @@ Rows are linked to `form_data` with `row_id`.
 | K | `has_group` | `TRUE` if the grouped item had at least one group. |
 | L | `created_at` | Child row creation timestamp. |
 | M | `updated_at` | Child row last update timestamp. |
+| N | `no_cover_required` | `TRUE` when the teacher marked the row as `No cal cobrir`; empty/FALSE otherwise. |
 
 ## `recovery`
 
@@ -111,7 +112,7 @@ Rows can point either to a real absence row from `absences` or to one of the cor
 | E | `absence_id` | `absences.absence_item_id` for absence rows, or a corridor pseudo-id for corridor rows. |
 | F | `assignment_type` | `absence`, `corridor_lower`, or `corridor_upper`. |
 | G | `row_id` | Parent `form_data.row_id` for absence rows; blank for corridor rows. |
-| H | `teacher_code` | Teacher assigned to the guard duty. |
+| H | `teacher_code` | Teacher assigned to the guard duty. May be the special non-teacher token `__NO_CAL_COBRIR__` when no substitution is required. |
 | I | `created_at` | Creation timestamp. |
 | J | `updated_at` | Last update timestamp. |
 
@@ -143,3 +144,5 @@ When saving control-panel guard-duty assignments:
 1. Delete existing `profes_guardia` rows for the selected `assignment_date` and `time`.
 2. Write one row per nonempty guard assignment.
 3. Use the explicit `profes_guardia` headers above.
+
+`__NO_CAL_COBRIR__` is a special saved assignment value, not a real teacher code. It is allowed to appear in more than one row for the same slot and must not count as a duplicate teacher assignment.
