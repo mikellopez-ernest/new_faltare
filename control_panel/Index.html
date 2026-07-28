@@ -186,7 +186,7 @@
       .recovery-row td {
         background: #fff3bd;
         border-bottom-color: #efd36f;
-        white-space: pre-line;
+        white-space: pre-wrap;
       }
 
       .empty-row td {
@@ -937,9 +937,13 @@
       }
 
       function renderRecoveryRow(teachers) {
+        const indentedTeachers = teachers.map(function(teacher) {
+          return '\t' + teacher;
+        }).join('\n');
+
         return '<tr class="recovery-row">' +
           '<td></td>' +
-          '<td colspan="4">Guàrdia preferent:<br>' + escapeHtml(teachers.join('\n')) + '</td>' +
+          '<td colspan="4">Guàrdia preferent:<br>' + escapeHtml(indentedTeachers) + '</td>' +
           '<td></td>' +
           '</tr>';
       }

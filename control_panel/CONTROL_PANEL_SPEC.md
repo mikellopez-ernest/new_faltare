@@ -40,13 +40,55 @@ Configured logical tables:
 | Logical table | Physical sheet or sheets |
 | --- | --- |
 | `Dades de professors` | `Llista` |
-| `Horaris` | `GPU001` |
+| `Horaris` | `GPU001`, `schedule_cache` |
 | `Càrrega lectiva` | `assignatures` |
 | `Faltaré` | `form_data`, `absences`, `recovery`, `profes_guardia` |
 
 `Faltaré` is one logical spreadsheet with multiple sheets. The registry maps only the logical table name `Faltaré` to a spreadsheet ID; the physical sheet names are configured in code.
 
 Column B in the registry sheet is always another spreadsheet ID, never a sheet name.
+
+### `Dades de professors -> Llista` Structure
+
+`control_panel` must use the updated `Dades de professors` structure.
+
+Relevant columns:
+
+| Column | Header | Meaning |
+| --- | --- | --- |
+| A | `ESP` | Original teacher code. |
+| C | `NOM` | Name. |
+| D | `COGNOM1` | First surname. |
+| E | `COGNOM2` | Second surname. |
+| F | `REDUIT` | Short teacher code used by `form_data.teacher_code`, `Horaris -> schedule_cache.effective_teacher_code`, and `profes_guardia.teacher_code`. |
+| N | `ACTIU` | Active boolean. |
+| P | `SUBST?` | Substitute boolean. |
+
+Boolean handling:
+
+- Read both real boolean `true` and string `TRUE` as true.
+- Active teacher filtering must use `ACTIU` column N.
+- Substitute status, if needed by future control-panel logic, must use `SUBST?` column P and not `SITUACIO`.
+
+Teacher display names use columns C, D, and E: `NOM COGNOM1 COGNOM2`.
+
+Teacher lookup keys:
+
+- `form_data.teacher_code` stores the selected teacher's `REDUIT`, including substitute submissions.
+- Runtime `Horaris -> schedule_cache.effective_teacher_code` values are matched to `REDUIT`.
+- `profes_guardia.teacher_code` stores assigned teacher `REDUIT`, except the special non-teacher token `__NO_CAL_COBRIR__`.
+
+`Dades de professors` also contains `leave_absence`.
+
+For schedule cache generation outside this script:
+
+- `leave_absence.teacher_code` identifies the original teacher on leave.
+- `leave_absence.substitute_code` identifies the substitute teacher by `REDUIT`.
+- A leave row is active when the selected control-panel date is between `start_date` and `end_date`, inclusive.
+- Blank `end_date` means the leave is still active.
+- `Horaris -> schedule_cache` must already apply these rules. `control_panel` consumes the resulting `effective_teacher_code` and does not recalculate leave substitutions during normal loads.
+- `control_panel` trusts the existing cache. It must not call `rebuildScheduleCache()` and must not call the cache rebuild web endpoint.
+- Cache freshness is handled outside this script by daily rebuilds and rebuilds after leave-of-absence changes.
 
 ## Data Loading
 
@@ -57,16 +99,18 @@ For a selected date, the endpoint loads:
 - `Faltaré -> recovery`
 - `Faltaré -> profes_guardia`
 - `Dades de professors -> Llista`
-- `Horaris -> GPU001`
-- `Càrrega lectiva -> assignatures`
+- `Horaris -> schedule_cache`
 
 Primary absence rows come from `Faltaré -> absences`.
 
+The endpoint reads `schedule_cache` as-is. It does not rebuild or refresh the cache during page load, popup load, or save.
+
 Fallback rule:
 
-- If a `form_data` parent row matches the selected date but has no child rows in `Faltaré -> absences`, the endpoint computes visible rows from `Horaris -> GPU001`.
-- The fallback uses the parent `teacher_code`, the selected absence date weekday, the schedule slot mapping, and `Càrrega lectiva -> assignatures` for subject names.
+- If a `form_data` parent row matches the selected date but has no child rows in `Faltaré -> absences`, the endpoint computes visible rows from `Horaris -> schedule_cache`.
+- The fallback uses the parent `teacher_code`, the selected absence date weekday, `schedule_cache.effective_teacher_code`, `schedule_cache.subject_full_name`, and the schedule slot mapping.
 - This keeps existing or partially migrated parent rows visible without changing the normalized storage rule.
+- For substitute submissions, `form_data.teacher_code` stores the substitute's `REDUIT`; fallback works as long as the cache has been rebuilt with that substitute as `effective_teacher_code`.
 
 ## Helper Contract
 
@@ -110,11 +154,13 @@ For every time slot:
 
 If a time slot has no recovery candidates and no absences, it still shows the green time row.
 
-Absence rows are read from `Faltaré -> absences` when child rows exist. `Horaris -> GPU001` is only used as a fallback for matching parent rows that have no `absences` children.
+Absence rows are read from `Faltaré -> absences` when child rows exist. `Horaris -> schedule_cache` is only used as a fallback for matching parent rows that have no `absences` children.
+
+If an absence row represents a `GUARDIA` slot, it must be displayed in the main daily absence table so staff can see that the teacher is absent. It must not be displayed in the management popup as a row that needs coverage. The absent teacher is still unavailable for substitutions at that slot and must be excluded from the guard-teacher dropdown candidate pool.
 
 Absent teacher names are resolved by joining:
 
-`absences.row_id -> form_data.row_id -> form_data.teacher_code -> Dades de professors/Llista column F`
+`absences.row_id -> form_data.row_id -> form_data.teacher_code -> Dades de professors/Llista column F (REDUIT)`
 
 The displayed teacher name uses:
 
@@ -122,9 +168,9 @@ The displayed teacher name uses:
 
 Recovery candidates are resolved by joining:
 
-`recovery.row_id -> form_data.row_id -> form_data.teacher_code -> Dades de professors/Llista column F`
+`recovery.row_id -> form_data.row_id -> form_data.teacher_code -> Dades de professors/Llista column F (REDUIT)`
 
-Recovery teachers are shown as unique teacher names, one per line, under the text `Guàrdia preferent:`.
+Recovery teachers are shown as unique teacher names, one per line, under the text `Guàrdia preferent:`. Each preferred recovery teacher name in the yellow row should be visually indented under that title.
 
 For the management popup, recovery teachers matching the selected date/time must also be added to the guard-teacher dropdown candidate pool even if they do not have a `GUARDIA` timetable row at that slot.
 
@@ -191,15 +237,19 @@ Within the same priority block, preserve the visible order from the main time-sl
 
 ## Guard Teacher Candidate Pool
 
-For a selected date and time, the available guard-teacher pool is built from `Horaris -> GPU001`.
+For a selected date and time, the available guard-teacher pool is built from `Horaris -> schedule_cache`.
 
 A teacher is eligible for the pool when:
 
-- their timetable row matches the selected weekday,
-- their timetable row matches the selected time slot, and
-- their subject code or subject name is `GUARDIA`.
+- the cache row matches the selected weekday,
+- the cache row matches the selected time slot,
+- the cache row subject code or `subject_full_name` is `GUARDIA`,
+- `effective_teacher_code` matches an active teacher in `Dades de professors/Llista`,
+- their `Dades de professors/Llista` row is active (`ACTIU` column N true).
 
 Teacher names are resolved through `Dades de professors -> Llista`.
+
+If that `GUARDIA` timetable row belongs to an original teacher currently covered by an active leave, the cache should expose the substitute in `effective_teacher_code`. The eligible candidate is therefore the effective teacher, not the source/original teacher.
 
 If a teacher is absent at the same date/time, they must not be proposed as a guard teacher for another row.
 

@@ -38,7 +38,7 @@ One row per submitted or updated absence request.
 | D | `adreca_electronica` | Signed-in user when Apps Script exposes it; may be blank/fallback-derived when hidden by Apps Script. |
 | E | `absence_teacher_name` | Teacher selected in `Absència de`. |
 | F | `absence_teacher_email` | Email for the selected teacher from `Dades de professors`. |
-| G | `teacher_code` | Teacher code from `Dades de professors`, column F. |
+| G | `teacher_code` | Selected teacher `REDUIT` from `Dades de professors/Llista` column F. For substitute submissions, store the substitute's `REDUIT`; timetable lookup uses `Horaris -> schedule_cache.effective_teacher_code`. |
 | H | `que_vols_fer` | Selected first-page action. |
 | I | `professor_acompanyant` | `Sí` or `No`. Defaults to `No`. |
 | J | `absence_date` | Selected absence date. |
@@ -71,10 +71,10 @@ Rows are linked to `form_data` with `row_id`.
 | C | `item_index` | 1-based order in the submitted selection. |
 | D | `time` | Human-readable time derived from schedule slot, for example `08:00`. |
 | E | `subject_code` | Subject code from `Horaris`. |
-| F | `subject_name` | Subject name resolved from `Càrrega lectiva -> assignatures`. |
+| F | `subject_name` | Subject name read from `Horaris -> schedule_cache.subject_full_name`. |
 | G | `groups` | Comma-separated grouped class groups. |
 | H | `classrooms` | Comma-separated classrooms from source schedule rows. |
-| I | `schedule_row_ids` | Comma-separated source `Horaris` row IDs included in this grouped item. |
+| I | `schedule_row_ids` | Comma-separated source `Horaris -> schedule_cache.row_id` values included in this grouped item. |
 | J | `student_work` | Text entered in `Feina per l'alumnat`. |
 | K | `has_group` | `TRUE` if the grouped item had at least one group. |
 | L | `created_at` | Child row creation timestamp. |

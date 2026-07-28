@@ -17,10 +17,31 @@ const TABLE_SHEETS = {
   [TABLE_NAMES.ABSENCE_FORM]: 'form_data',
 };
 
+const SCHEDULE_CACHE_SHEET_NAME = 'schedule_cache';
+const SCHEDULE_CACHE_HEADERS = [
+  'row_id',
+  'group',
+  'source_teacher_code',
+  'source_teacher_name',
+  'source_teacher_original_code',
+  'effective_teacher_code',
+  'effective_teacher_name',
+  'teacher_was_substituted',
+  'subject_code',
+  'subject_full_name',
+  'classroom',
+  'day',
+  'slot',
+];
+
 const FALTARE_SHEETS = {
   FORM_DATA: 'form_data',
   ABSENCES: 'absences',
   RECOVERY: 'recovery',
+};
+
+const PROFESSORS_SHEETS = {
+  LIST: 'Llista',
 };
 
 const ACTIONS = {
@@ -199,13 +220,13 @@ function getScheduleForTeacher(payload) {
     throw new Error('No s\'ha trobat el professor o professora seleccionat.');
   }
 
-  const schedules = loadScheduleRows_();
-  const subjects = loadSubjectMap_();
+  const tableRegistry = loadTableRegistry_();
+  const schedules = loadScheduleCacheRows_(tableRegistry);
   const teacherCode = normalizeKey_(teacher.teacherCode);
 
   const rawItems = schedules
     .filter(function(row) {
-      return normalizeKey_(row.teacherCode) === teacherCode && Number(row.day) === dayNumber;
+      return normalizeKey_(row.effectiveTeacherCode) === teacherCode && Number(row.day) === dayNumber;
     })
     .sort(function(a, b) {
       return Number(a.slot) - Number(b.slot);
@@ -214,9 +235,9 @@ function getScheduleForTeacher(payload) {
       return {
         rowId: row.rowId,
         group: row.group,
-        teacherCode: row.teacherCode,
+        teacherCode: row.effectiveTeacherCode,
         subjectCode: row.subjectCode,
-        subjectName: subjects[normalizeKey_(row.subjectCode)] || row.subjectCode,
+        subjectName: row.subjectFullName || row.subjectCode,
         classroom: row.classroom,
         day: row.day,
         slot: row.slot,
@@ -228,6 +249,11 @@ function getScheduleForTeacher(payload) {
   return {
     teacherEmail: teacher.email,
     teacherCode: teacher.teacherCode,
+    scheduleTeacherCode: teacher.teacherCode,
+    scheduleTeacherName: teacher.name,
+    substituteResolved: schedules.some(function(row) {
+      return normalizeKey_(row.effectiveTeacherCode) === teacherCode && parseBoolean_(row.teacherWasSubstituted);
+    }),
     teacherName: teacher.name,
     absenceDate: absenceDate,
     dayNumber: dayNumber,
@@ -577,6 +603,44 @@ function openTableSheet_(tableRegistry, tableName) {
   return sheet;
 }
 
+function openTableSpreadsheet_(tableRegistry, tableName) {
+  const spreadsheetId = tableRegistry[tableName];
+
+  if (!spreadsheetId) {
+    throw new Error('Table "' + tableName + '" was not found in the table registry.');
+  }
+
+  return SpreadsheetApp.openById(spreadsheetId);
+}
+
+function openProfessorSheet_(tableRegistry, sheetName) {
+  const spreadsheet = openTableSpreadsheet_(tableRegistry, TABLE_NAMES.PROFESSORS_DATA);
+  const sheet = spreadsheet.getSheetByName(sheetName);
+
+  if (!sheet) {
+    throw new Error(
+      'Table "' + TABLE_NAMES.PROFESSORS_DATA + '" is missing sheet "' + sheetName + '".'
+    );
+  }
+
+  return sheet;
+}
+
+function openTableSheetByName_(tableRegistry, tableName, sheetName) {
+  const spreadsheet = openTableSpreadsheet_(tableRegistry, tableName);
+  const spreadsheetId = tableRegistry[tableName];
+  const sheet = spreadsheet.getSheetByName(sheetName);
+
+  if (!sheet) {
+    throw new Error(
+      'Table "' + tableName + '" points to spreadsheet ID "' + spreadsheetId +
+      '", but sheet "' + sheetName + '" was not found.'
+    );
+  }
+
+  return sheet;
+}
+
 function openFaltareSheet_(tableRegistry, sheetName) {
   const spreadsheetId = tableRegistry[TABLE_NAMES.ABSENCE_FORM];
 
@@ -598,20 +662,20 @@ function openFaltareSheet_(tableRegistry, sheetName) {
 }
 
 function loadActiveTeachers_() {
-  const sheet = openTableSheet_(loadTableRegistry_(), TABLE_NAMES.PROFESSORS_DATA);
+  const sheet = openProfessorSheet_(loadTableRegistry_(), PROFESSORS_SHEETS.LIST);
   const values = sheet.getDataRange().getDisplayValues();
 
   return values.slice(1).reduce(function(teachers, row) {
-    const isInactive = parseBoolean_(row[11]);
     const isActive = parseBoolean_(row[13]);
 
-    if (isInactive || !isActive) {
+    if (!isActive) {
       return teachers;
     }
 
     const name = joinName_(row[2], row[3], row[4]);
+    const espCode = String(row[0] || '').trim();
     const teacherCode = String(row[5] || '').trim();
-    const email = String(row[10] || '').trim();
+    const email = String(row[11] || '').trim();
 
     if (!name || !email) {
       return teachers;
@@ -621,11 +685,21 @@ function loadActiveTeachers_() {
       name: name,
       email: email,
       teacherCode: teacherCode,
+      espCode: espCode,
+      reducedCode: teacherCode,
+      surname1: String(row[3] || '').trim(),
+      surname2: String(row[4] || '').trim(),
+      firstName: String(row[2] || '').trim(),
+      isActive: isActive,
+      isSubstitute: parseBoolean_(row[15]),
     });
 
     return teachers;
   }, []).sort(function(a, b) {
-    return a.name.localeCompare(b.name, 'ca');
+    return String(a.surname1 || '').localeCompare(String(b.surname1 || ''), 'ca') ||
+      String(a.surname2 || '').localeCompare(String(b.surname2 || ''), 'ca') ||
+      String(a.firstName || '').localeCompare(String(b.firstName || ''), 'ca') ||
+      String(a.name || '').localeCompare(String(b.name || ''), 'ca');
   });
 }
 
@@ -637,38 +711,39 @@ function findTeacherByEmail_(email) {
   })[0] || null;
 }
 
-function loadScheduleRows_() {
-  const sheet = openTableSheet_(loadTableRegistry_(), TABLE_NAMES.SCHEDULES);
+function loadScheduleCacheRows_(tableRegistry) {
+  const sheet = openTableSheetByName_(
+    tableRegistry || loadTableRegistry_(),
+    TABLE_NAMES.SCHEDULES,
+    SCHEDULE_CACHE_SHEET_NAME
+  );
   const values = sheet.getDataRange().getDisplayValues();
+  const headers = values[0] || [];
+  const headerMap = buildHeaderMap_(headers);
 
-  return values.slice(1).map(function(row) {
-    return {
-      rowId: row[0],
-      group: row[1],
-      teacherCode: row[2],
-      subjectCode: row[3],
-      classroom: row[4],
-      day: row[5],
-      slot: row[6],
-    };
-  });
-}
-
-function loadSubjectMap_() {
-  const sheet = openTableSheet_(loadTableRegistry_(), TABLE_NAMES.TEACHING_LOAD);
-  const values = sheet.getDataRange().getDisplayValues();
-  const subjects = {};
-
-  values.slice(1).forEach(function(row) {
-    const code = normalizeKey_(row[0]);
-    const name = String(row[2] || '').trim();
-
-    if (code && name) {
-      subjects[code] = name;
+  SCHEDULE_CACHE_HEADERS.forEach(function(header) {
+    if (headerMap[header] === undefined) {
+      throw new Error('Horaris/schedule_cache is missing required column "' + header + '".');
     }
   });
 
-  return subjects;
+  return values.slice(1).map(function(row) {
+    return {
+      rowId: row[headerMap.row_id],
+      group: row[headerMap.group],
+      sourceTeacherCode: row[headerMap.source_teacher_code],
+      sourceTeacherName: row[headerMap.source_teacher_name],
+      sourceTeacherOriginalCode: row[headerMap.source_teacher_original_code],
+      effectiveTeacherCode: row[headerMap.effective_teacher_code],
+      effectiveTeacherName: row[headerMap.effective_teacher_name],
+      teacherWasSubstituted: row[headerMap.teacher_was_substituted],
+      subjectCode: row[headerMap.subject_code],
+      subjectFullName: row[headerMap.subject_full_name],
+      classroom: row[headerMap.classroom],
+      day: row[headerMap.day],
+      slot: row[headerMap.slot],
+    };
+  });
 }
 
 function groupScheduleItems_(items) {
@@ -715,6 +790,18 @@ function groupScheduleItems_(items) {
       hasGroup: item.hasGroup,
     };
   });
+}
+
+function buildHeaderMap_(headers) {
+  return headers.reduce(function(map, header, index) {
+    const key = String(header || '').trim();
+
+    if (key) {
+      map[key] = index;
+    }
+
+    return map;
+  }, {});
 }
 
 function replaceAbsenceRows_(sheet, rowId, items) {
@@ -1076,6 +1163,34 @@ function getIsoWeekday_(dateString) {
   const day = date.getDay();
 
   return day === 0 ? 7 : day;
+}
+
+function normalizeDateValue_(value) {
+  if (!value) {
+    return '';
+  }
+
+  if (Object.prototype.toString.call(value) === '[object Date]' && !Number.isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+
+  const raw = String(value || '').trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return raw;
+  }
+
+  const slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+  if (slashMatch) {
+    return [
+      slashMatch[3],
+      String(slashMatch[2]).padStart(2, '0'),
+      String(slashMatch[1]).padStart(2, '0'),
+    ].join('-');
+  }
+
+  return raw;
 }
 
 function parseBoolean_(value) {

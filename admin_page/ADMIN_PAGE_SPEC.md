@@ -74,9 +74,12 @@ Teacher name resolution from `Dades de professors -> Llista`:
 - Column C: name
 - Column D: surname 1
 - Column E: surname 2
-- Column F: teacher code
+- Column F: `REDUIT`, the teacher code stored in `form_data.teacher_code`
+- Column L: `CORREU`, teacher email if needed
 
 Visible teacher value is `C D E`.
+
+Do not filter `Dades de professors` rows by `ACTIU` in this admin view. Historical submitted rows should continue to resolve names even if the teacher later becomes inactive.
 
 ## Table Columns
 

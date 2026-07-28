@@ -14,6 +14,23 @@ const TABLE_SHEETS = {
   [TABLE_NAMES.TEACHING_LOAD]: 'assignatures',
 };
 
+const SCHEDULE_CACHE_SHEET_NAME = 'schedule_cache';
+const SCHEDULE_CACHE_HEADERS = [
+  'row_id',
+  'group',
+  'source_teacher_code',
+  'source_teacher_name',
+  'source_teacher_original_code',
+  'effective_teacher_code',
+  'effective_teacher_name',
+  'teacher_was_substituted',
+  'subject_code',
+  'subject_full_name',
+  'classroom',
+  'day',
+  'slot',
+];
+
 const FALTARE_SHEETS = {
   FORM_DATA: 'form_data',
   ABSENCES: 'absences',
@@ -97,8 +114,7 @@ function getControlPanelDayData(payload) {
   const absenceValues = readSheetValues_(openFaltareSheet_(tableRegistry, FALTARE_SHEETS.ABSENCES));
   const recoveryValues = readSheetValues_(openFaltareSheet_(tableRegistry, FALTARE_SHEETS.RECOVERY));
   const professorValues = readSheetValues_(openConfiguredTableSheet_(tableRegistry, TABLE_NAMES.PROFESSORS_DATA));
-  const scheduleValues = readSheetValues_(openConfiguredTableSheet_(tableRegistry, TABLE_NAMES.SCHEDULES));
-  const subjectValues = readSheetValues_(openConfiguredTableSheet_(tableRegistry, TABLE_NAMES.TEACHING_LOAD));
+  const scheduleCacheValues = readSheetValues_(openTableSheetByName_(tableRegistry, TABLE_NAMES.SCHEDULES, SCHEDULE_CACHE_SHEET_NAME));
 
   const teachersByCode = buildTeachersByCode_(professorValues);
   const formDataByRowId = buildFormDataByRowId_(formDataValues);
@@ -107,8 +123,7 @@ function getControlPanelDayData(payload) {
     absenceData.byTime,
     absenceData.rowIdsWithChildren,
     formDataValues,
-    scheduleValues,
-    subjectValues,
+    scheduleCacheValues,
     teachersByCode,
     selectedDate
   );
@@ -139,8 +154,7 @@ function getManagementSlotData(payload) {
   const absenceValues = readSheetValues_(openFaltareSheet_(tableRegistry, FALTARE_SHEETS.ABSENCES));
   const recoveryValues = readSheetValues_(openFaltareSheet_(tableRegistry, FALTARE_SHEETS.RECOVERY));
   const professorValues = readSheetValues_(openConfiguredTableSheet_(tableRegistry, TABLE_NAMES.PROFESSORS_DATA));
-  const scheduleValues = readSheetValues_(openConfiguredTableSheet_(tableRegistry, TABLE_NAMES.SCHEDULES));
-  const subjectValues = readSheetValues_(openConfiguredTableSheet_(tableRegistry, TABLE_NAMES.TEACHING_LOAD));
+  const scheduleCacheValues = readSheetValues_(openTableSheetByName_(tableRegistry, TABLE_NAMES.SCHEDULES, SCHEDULE_CACHE_SHEET_NAME));
   const guardHistoryValues = readSheetValues_(openFaltareSheet_(tableRegistry, FALTARE_SHEETS.PROFES_GUARDIA));
 
   const teachersByCode = buildTeachersByCode_(professorValues);
@@ -150,12 +164,12 @@ function getManagementSlotData(payload) {
     absenceData.byTime,
     absenceData.rowIdsWithChildren,
     formDataValues,
-    scheduleValues,
-    subjectValues,
+    scheduleCacheValues,
     teachersByCode,
     selectedDate
   );
-  const absenceRows = (absencesByTime[selectedTime] || []).map(function(row) {
+  const slotAbsences = absencesByTime[selectedTime] || [];
+  const absenceRows = filterCoverableAbsences_(slotAbsences).map(function(row) {
     return {
       id: row.absenceItemId || String(row.rowId || '') + ':' + selectedTime,
       type: 'absence',
@@ -175,15 +189,15 @@ function getManagementSlotData(payload) {
   });
   const rows = orderManagementRows_(absenceRows, selectedDate, selectedTime);
   const candidates = buildGuardTeacherCandidates_(
-    scheduleValues,
-    subjectValues,
+    scheduleCacheValues,
     teachersByCode,
     guardHistoryValues,
     selectedDate,
     selectedTime,
     rows,
     recoveryValues,
-    formDataByRowId
+    formDataByRowId,
+    slotAbsences
   );
 
   let candidateIndex = 0;
@@ -400,6 +414,7 @@ function buildAbsencesByTime_(sheetData, formDataByRowId, teachersByCode, select
       teacherCode: teacherCode,
       teacherName: teacher.name || parent.absence_teacher_name || teacherCode,
       subject: row.subject_name || row.subject_code || '',
+      subjectCode: row.subject_code || '',
       group: row.groups || '',
       classroom: row.classrooms || '',
       studentWork: row.student_work || '',
@@ -420,10 +435,9 @@ function buildAbsencesByTime_(sheetData, formDataByRowId, teachersByCode, select
   };
 }
 
-function addTimetableFallbackAbsences_(byTime, rowIdsWithChildren, formDataValues, scheduleValues, subjectValues, teachersByCode, selectedDate) {
+function addTimetableFallbackAbsences_(byTime, rowIdsWithChildren, formDataValues, scheduleCacheValues, teachersByCode, selectedDate) {
   const formRows = rowsToObjects_(formDataValues);
-  const schedules = buildScheduleRows_(scheduleValues);
-  const subjects = buildSubjectMap_(subjectValues);
+  const schedules = buildScheduleCacheRows_(scheduleCacheValues);
   const dayNumber = getIsoWeekday_(selectedDate);
 
   if (!dayNumber || dayNumber > 5) {
@@ -440,14 +454,14 @@ function addTimetableFallbackAbsences_(byTime, rowIdsWithChildren, formDataValue
     const teacherCode = String(parent.teacher_code || '').trim();
     const teacher = teachersByCode[normalizeKey_(teacherCode)] || {};
     const teacherSchedule = schedules.filter(function(row) {
-      return normalizeKey_(row.teacherCode) === normalizeKey_(teacherCode) && Number(row.day) === dayNumber;
+      return normalizeKey_(row.effectiveTeacherCode) === normalizeKey_(teacherCode) && Number(row.day) === dayNumber;
     }).map(function(row) {
       return {
         rowId: row.rowId,
         group: row.group,
-        teacherCode: row.teacherCode,
+        teacherCode: row.effectiveTeacherCode,
         subjectCode: row.subjectCode,
-        subjectName: subjects[normalizeKey_(row.subjectCode)] || row.subjectCode,
+        subjectName: row.subjectFullName || row.subjectCode,
         classroom: row.classroom,
         day: row.day,
         slot: row.slot,
@@ -473,6 +487,7 @@ function addTimetableFallbackAbsences_(byTime, rowIdsWithChildren, formDataValue
         teacherCode: teacherCode,
         teacherName: teacher.name || parent.absence_teacher_name || teacherCode,
         subject: item.subjectName || item.subjectCode || '',
+        subjectCode: item.subjectCode || '',
         group: item.groupsText || '',
         classroom: item.classrooms.join(', '),
         studentWork: '',
@@ -536,11 +551,25 @@ function buildRecoveryByTime_(sheetData, formDataByRowId, teachersByCode, select
   return byTime;
 }
 
+function filterCoverableAbsences_(rows) {
+  return rows.filter(function(row) {
+    return !isGuardDutyAbsence_(row);
+  });
+}
+
+function isGuardDutyAbsence_(row) {
+  return normalizeKey_(row.subjectCode) === 'GUARDIA' || normalizeKey_(row.subject) === 'GUARDIA';
+}
+
 function buildTeachersByCode_(sheetData) {
   const rows = sheetData.values || [];
   const teachers = {};
 
   rows.slice(1).forEach(function(row) {
+    if (!parseBoolean_(row[13])) {
+      return;
+    }
+
     const nameParts = [
       row[2],
       row[3],
@@ -553,6 +582,7 @@ function buildTeachersByCode_(sheetData) {
     if (teacherCode) {
       teachers[normalizeKey_(teacherCode)] = {
         code: teacherCode,
+        espCode: String(row[0] || '').trim(),
         name: nameParts.join(' '),
         surname1: String(row[3] || '').trim(),
       };
@@ -625,9 +655,8 @@ function getPopupRowPriority_(groupText, type) {
   return 3;
 }
 
-function buildGuardTeacherCandidates_(scheduleValues, subjectValues, teachersByCode, guardHistoryValues, selectedDate, selectedTime, managementRows, recoveryValues, formDataByRowId) {
+function buildGuardTeacherCandidates_(scheduleCacheValues, teachersByCode, guardHistoryValues, selectedDate, selectedTime, managementRows, recoveryValues, formDataByRowId, slotAbsences) {
   const dayNumber = getIsoWeekday_(selectedDate);
-  const subjects = buildSubjectMap_(subjectValues);
   const absentTeacherCodes = {};
   const candidatesByCode = {};
 
@@ -637,30 +666,38 @@ function buildGuardTeacherCandidates_(scheduleValues, subjectValues, teachersByC
     }
   });
 
+  (slotAbsences || []).forEach(function(row) {
+    if (row.teacherCode) {
+      absentTeacherCodes[normalizeKey_(row.teacherCode)] = true;
+    }
+  });
+
   buildRecoveryTeacherCandidates_(recoveryValues, formDataByRowId, teachersByCode, selectedDate, selectedTime, absentTeacherCodes)
     .forEach(function(candidate) {
       candidatesByCode[normalizeKey_(candidate.code)] = candidate;
     });
 
-  buildScheduleRows_(scheduleValues).forEach(function(row) {
+  buildScheduleCacheRows_(scheduleCacheValues).forEach(function(row) {
     const time = SCHEDULE_SLOT_TIMES[String(row.slot)] || normalizeTime_(row.slot);
     const subjectCode = normalizeKey_(row.subjectCode);
-    const subjectName = normalizeKey_(subjects[subjectCode] || row.subjectCode);
-    const teacherCodeKey = normalizeKey_(row.teacherCode);
+    const subjectName = normalizeKey_(row.subjectFullName || row.subjectCode);
+    const teacherCodeKey = normalizeKey_(row.effectiveTeacherCode);
+    const teacher = teachersByCode[teacherCodeKey];
+    const candidateCodeKey = teacher ? normalizeKey_(teacher.code) : '';
 
     if (
       Number(row.day) !== dayNumber ||
       normalizeTime_(time) !== selectedTime ||
       (subjectCode !== 'GUARDIA' && subjectName !== 'GUARDIA') ||
-      absentTeacherCodes[teacherCodeKey]
+      !teacher ||
+      absentTeacherCodes[teacherCodeKey] ||
+      absentTeacherCodes[candidateCodeKey]
     ) {
       return;
     }
 
-    const teacher = teachersByCode[teacherCodeKey];
-
-    if (teacher && !candidatesByCode[teacherCodeKey]) {
-      candidatesByCode[teacherCodeKey] = {
+    if (teacher && !candidatesByCode[candidateCodeKey]) {
+      candidatesByCode[candidateCodeKey] = {
         code: teacher.code,
         name: teacher.name,
         surname1: teacher.surname1 || '',
@@ -815,6 +852,10 @@ function validateGuardAssignments_(rows) {
 }
 
 function parseBoolean_(value) {
+  if (value === true) {
+    return true;
+  }
+
   return String(value || '').trim().toLowerCase() === 'true';
 }
 
@@ -882,36 +923,33 @@ function getHistorySortValue_(assignmentDate, updatedAt) {
   return 0;
 }
 
-function buildScheduleRows_(sheetData) {
+function buildScheduleCacheRows_(sheetData) {
   const rows = sheetData.displayValues || sheetData.values || [];
+  const headerMap = buildHeaderMap_(rows[0] || []);
 
-  return rows.slice(1).map(function(row) {
-    return {
-      rowId: row[0],
-      group: row[1],
-      teacherCode: row[2],
-      subjectCode: row[3],
-      classroom: row[4],
-      day: row[5],
-      slot: row[6],
-    };
-  });
-}
-
-function buildSubjectMap_(sheetData) {
-  const rows = sheetData.displayValues || sheetData.values || [];
-  const subjects = {};
-
-  rows.slice(1).forEach(function(row) {
-    const code = normalizeKey_(row[0]);
-    const name = String(row[2] || '').trim();
-
-    if (code && name) {
-      subjects[code] = name;
+  SCHEDULE_CACHE_HEADERS.forEach(function(header) {
+    if (headerMap[header] === undefined) {
+      throw new Error('Horaris/schedule_cache is missing required column "' + header + '".');
     }
   });
 
-  return subjects;
+  return rows.slice(1).map(function(row) {
+    return {
+      rowId: row[headerMap.row_id],
+      group: row[headerMap.group],
+      sourceTeacherCode: row[headerMap.source_teacher_code],
+      sourceTeacherName: row[headerMap.source_teacher_name],
+      sourceTeacherOriginalCode: row[headerMap.source_teacher_original_code],
+      effectiveTeacherCode: row[headerMap.effective_teacher_code],
+      effectiveTeacherName: row[headerMap.effective_teacher_name],
+      teacherWasSubstituted: row[headerMap.teacher_was_substituted],
+      subjectCode: row[headerMap.subject_code],
+      subjectFullName: row[headerMap.subject_full_name],
+      classroom: row[headerMap.classroom],
+      day: row[headerMap.day],
+      slot: row[headerMap.slot],
+    };
+  });
 }
 
 function groupScheduleItems_(items) {
@@ -957,6 +995,18 @@ function groupScheduleItems_(items) {
   });
 }
 
+function buildHeaderMap_(headers) {
+  return headers.reduce(function(map, header, index) {
+    const key = String(header || '').trim();
+
+    if (key) {
+      map[key] = index;
+    }
+
+    return map;
+  }, {});
+}
+
 function rowsToObjects_(sheetData) {
   const values = sheetData.displayValues || sheetData.values || [];
 
@@ -998,11 +1048,12 @@ function getConfiguredDataSources_() {
       },
       schedules: {
         logicalName: TABLE_NAMES.SCHEDULES,
-        sheets: [TABLE_SHEETS[TABLE_NAMES.SCHEDULES]],
+        sheets: [SCHEDULE_CACHE_SHEET_NAME],
       },
       teachingLoad: {
         logicalName: TABLE_NAMES.TEACHING_LOAD,
         sheets: [TABLE_SHEETS[TABLE_NAMES.TEACHING_LOAD]],
+        note: 'No longer read for schedule display; subject names come from Horaris/schedule_cache.',
       },
       absenceForm: {
         logicalName: TABLE_NAMES.ABSENCE_FORM,

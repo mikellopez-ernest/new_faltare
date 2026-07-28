@@ -15,13 +15,101 @@ Configured logical tables and physical sheet names:
 | Logical table name | Sheet name |
 | --- | --- |
 | `Dades de professors` | `Llista` |
-| `Horaris` | `GPU001` |
+| `Horaris` | `GPU001`, `schedule_cache` |
 | `Càrrega lectiva` | `assignatures` |
 | `Faltaré` | `form_data`, `absences`, `recovery` |
 
 `attendance_form` writes only the three `Faltaré` sheets listed above. The same logical `Faltaré` spreadsheet also contains `profes_guardia`, which is owned by `control_panel`.
 
-The app must not assume these sheets live in the same spreadsheet. Each logical table is resolved through the registry spreadsheet defined by script property `db`.
+The app must not assume these sheets live in the same spreadsheet. Each logical table is resolved through the registry spreadsheet.
+
+For the updated `Dades de professors` source, the registry spreadsheet ID is stored in Apps Script property `db`. In that registry spreadsheet, sheet `tables`, find the row where column A is `Dades de professors`; column B contains the spreadsheet ID for the `Dades de professors` DB. The DB spreadsheet contains sheet `Llista`.
+
+`Llista` row 1 is the header row and teacher data starts at row 2.
+
+### `Dades de professors -> Llista` Structure
+
+| Column | Header | Meaning |
+| --- | --- | --- |
+| A | `ESP` | Teacher code for original teacher records. |
+| B | `DEPT.` | Department. |
+| C | `NOM` | Name. |
+| D | `COGNOM1` | First surname. |
+| E | `COGNOM2` | Second surname. |
+| F | `REDUIT` | Short teacher code; substitute identifier. |
+| G | `SITUACIO` | Employment situation. |
+| H | `JORNADA` | Workload. |
+| I | `DNI` | DNI. |
+| J | `TELF` | Phone. |
+| K | `XTEC` | XTEC account. |
+| L | `CORREU` | Email address. |
+| M | `NOUS` | New/novel teacher boolean. |
+| N | `ACTIU` | Active boolean. |
+| O | `BAIXA?` | Leave-of-absence boolean. |
+| P | `SUBST?` | Substitute boolean. |
+
+Important column changes:
+
+- `JORNADA` was inserted after `SITUACIO`, so previous columns after G shifted one position to the right.
+- `BAIXA?` is column O, not column L.
+- `ACTIU` is column N.
+- `NOUS` is column M.
+- `SUBST?` is column P and is the only source for substitute status.
+- Do not infer substitute status from `SITUACIO`.
+
+Allowed `SITUACIO` values:
+
+- `FUNC. DEF`
+- `FUNC. PERFIL`
+- `FUNC. SNS PLAÇA`
+- `INT`
+- `INT. PERF`
+- `LABORAL`
+
+Allowed `JORNADA` values:
+
+- `SENCERA`
+- `MITJA`
+- `REDUCCIÓ UN TERÇ`
+
+Boolean handling for columns M, N, O, and P:
+
+- Read both real boolean `true` and string `TRUE` as true.
+- Writes, where this project writes these fields, must use real booleans.
+
+Teacher full name:
+
+- Build `NOM SENCER` from columns C, D, and E: `NOM + " " + COGNOM1 + " " + COGNOM2`.
+- Sort teacher lists by surname order: `COGNOM1`, then `COGNOM2`, then `NOM`.
+
+Substitute eligibility:
+
+- A teacher is eligible as a substitute only when `SUBST?` column P is true and `ACTIU` column N is true.
+- `REDUIT` column F is the short teacher code used as the substitute identifier.
+
+If this project uses leave-of-absence data, the same `Dades de professors` DB also contains sheet `leave_absence`.
+
+`leave_absence` columns:
+
+| Column | Header | Meaning |
+| --- | --- | --- |
+| A | `row_id` | Original row number in `Llista`. |
+| B | `teacher_code` | Original teacher `ESP` from `Llista` column A. |
+| C | `substitute_code` | Substitute `REDUIT` from `Llista` column F. |
+| D | `start_date` | Leave start date. |
+| E | `end_date` | Leave end date. |
+| F | `comments` | Comments. |
+
+Starting a leave sets `Llista` column O `BAIXA?` to true. Ending a leave fills `leave_absence.end_date` and sets `Llista` column O `BAIXA?` to false.
+
+The form does not recalculate leave substitution when loading a schedule. It reads `Horaris -> schedule_cache`, where active leave/substitute resolution has already been applied.
+
+Cache freshness policy:
+
+- `attendance_form` trusts the existing `Horaris -> schedule_cache`.
+- It must not call `rebuildScheduleCache()`.
+- It must not call the cache rebuild web endpoint.
+- Cache freshness is handled outside this script by daily rebuilds and rebuilds after leave-of-absence changes.
 
 ## Access
 
@@ -70,15 +158,23 @@ Source:
 
 Filtering:
 
-- Include rows where column `L` (`BAIXA?`) is `FALSE`.
-- Include rows where column `N` (`ACTIVE`) is `TRUE`.
+- Include rows where column `N` (`ACTIU`) is true.
+- Do not exclude substitutes; active substitute teachers must appear in the combo.
+- Do not use `BAIXA?` to filter this combo unless a later requirement explicitly changes it.
 
 Display value:
 
-- Concatenate columns `C`, `D`, and `E`.
-- These represent name, first surname, and second surname.
+- Build full name from columns `C`, `D`, and `E`: `NOM COGNOM1 COGNOM2`.
+- Sort options by `COGNOM1`, then `COGNOM2`, then `NOM`.
 
-The selected teacher name will later be used to resolve the teacher email and teacher code where needed.
+The selected teacher row will later be used to resolve:
+
+- email from column `L` (`CORREU`),
+- short teacher code from column `F` (`REDUIT`),
+- original teacher code from column `A` (`ESP`), when needed,
+- substitute status from column `P` (`SUBST?`).
+
+Submitted `Faltaré -> form_data.teacher_code` stores the selected teacher's `REDUIT`, including when the selected teacher is a substitute. Schedule lookup uses `Horaris -> schedule_cache.effective_teacher_code`, so substitute timetable resolution comes from the cache.
 
 A teacher can choose any teacher in this field. The selected teacher is not restricted to the signed-in user.
 
@@ -183,25 +279,43 @@ Teacher code lookup:
 
 - Use logical table `Dades de professors`.
 - Use sheet `Llista`.
-- Match the selected teacher's email against column `K`.
-- Return the teacher code from column `F`.
+- Use the selected teacher row from Part B.
+- Read the selected teacher's email from column `L` (`CORREU`).
+- Read the selected teacher's short code from column `F` (`REDUIT`).
+- Read substitute status from column `P` (`SUBST?`).
+- Read active status from column `N` (`ACTIU`).
+
+Schedule teacher resolution:
+
+- Use the selected teacher's `REDUIT` code from column F.
+- Filter `Horaris -> schedule_cache` where `effective_teacher_code` equals that `REDUIT`.
+- If the selected teacher is a substitute, the cache must already contain the original teacher timetable rows with the substitute as `effective_teacher_code`.
+- `source_teacher_code` and `source_teacher_original_code` are audit/source fields only and must not be used as the primary runtime lookup key.
 
 Schedule source:
 
 - Use logical table `Horaris`.
-- Use sheet `GPU001`.
+- Use sheet `schedule_cache` for runtime schedule reads.
+- `GPU001` remains the raw source of truth used to rebuild the cache.
+- Do not rebuild the cache from this form; read it as-is.
 
-Expected columns in `Horaris` / `GPU001`:
+Required columns in `Horaris` / `schedule_cache`:
 
 | Field | Meaning |
 | --- | --- |
-| `ROW_ID` | Row identifier |
-| `GROUP` | Student group |
-| `TEACHER'S CODE` | Teacher code |
-| `SUBJECT CODE` | Subject code |
-| `CLASSROOM` | Classroom |
-| `DAY` | Day number, from 1 to 5 |
-| `SCHEDULE SLOT` | Schedule slot, from 1 to 12 |
+| `row_id` | Source timetable row identifier |
+| `group` | Student group |
+| `source_teacher_code` | Raw timetable teacher code |
+| `source_teacher_name` | Raw timetable teacher name |
+| `source_teacher_original_code` | Original teacher code used by leave/substitute source logic |
+| `effective_teacher_code` | Current teacher code to use for schedule lookup |
+| `effective_teacher_name` | Current teacher name |
+| `teacher_was_substituted` | Boolean/cache flag showing whether effective differs from source |
+| `subject_code` | Subject code |
+| `subject_full_name` | Subject display name |
+| `classroom` | Classroom |
+| `day` | Day number, from 1 to 5 |
+| `slot` | Schedule slot, from 1 to 12 |
 
 Day resolution:
 
@@ -231,10 +345,8 @@ Schedule slot mapping:
 
 Subject name lookup:
 
-- Use logical table `Càrrega lectiva`.
-- Use sheet `assignatures`.
-- Look up the `SUBJECT CODE` against column `A`.
-- Display the corresponding subject name from column `C`.
+- Use `subject_full_name` from `Horaris -> schedule_cache`.
+- Do not open `Càrrega lectiva -> assignatures` during the normal one-day schedule load.
 
 Schedule table columns:
 
@@ -242,7 +354,7 @@ Schedule table columns:
 | --- | --- |
 | `1` | Checkbox, default `false` |
 | `2` | Time, derived from `SCHEDULE SLOT` |
-| `3` | Subject name, resolved through `Càrrega lectiva` / `assignatures` |
+| `3` | Subject name, read from `schedule_cache.subject_full_name` |
 | `4` | `No cal cobrir` toggle button |
 | `5` | Text box with placeholder `Feina per l'alumnat`, only when the grouped row has an associated group |
 

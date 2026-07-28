@@ -36,7 +36,7 @@ Current logical table mappings:
 | Logical table | Sheet |
 | --- | --- |
 | `Dades de professors` | `Llista` |
-| `Horaris` | `GPU001` |
+| `Horaris` | `GPU001`, `schedule_cache` |
 | `Càrrega lectiva` | `assignatures` |
 | `Faltaré` | `form_data`, `absences`, `recovery`, `profes_guardia` |
 
@@ -48,6 +48,10 @@ Current logical table mappings:
 - `profes_guardia`: guard-duty assignments created by the control panel, linked to absence/corridor assignment IDs.
 
 Schedule selections and recovery items must not be stored as JSON fields in `form_data`.
+
+`Horaris -> GPU001` remains the raw timetable source, but runtime schedule reads should prefer `Horaris -> schedule_cache`. The cache includes effective teacher substitutions and subject display names, so apps can use `effective_teacher_code`, `effective_teacher_name`, and `subject_full_name` without also opening `leave_absence` or `assignatures` for normal schedule display.
+
+`attendance_form` and `control_panel` trust the existing cache. They must not rebuild it before reading schedules. Cache freshness is owned outside these apps: it is rebuilt daily and whenever a leave of absence is created, changed, or ended.
 
 ## Git Setup
 

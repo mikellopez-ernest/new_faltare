@@ -67,6 +67,13 @@ Core constants and helpers live in `Código.js`:
 
 Admin page behavior is specified in `ADMIN_PAGE_SPEC.md`.
 
+`Dades de professors -> Llista` uses the updated schema:
+
+- Column F `REDUIT` is the key used to resolve `form_data.teacher_code`.
+- Column L `CORREU` is the teacher email.
+- Names are built from columns C, D, and E.
+- Do not filter inactive teachers in the admin view; historical submitted rows should still display.
+
 ## Configured Tables
 
 The script currently requires these logical tables from the registry:

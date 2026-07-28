@@ -48,6 +48,10 @@ The logical table `Faltaré` is a spreadsheet with these physical sheets:
 
 The old JSON fields `selected_schedule_items_json` and `recovery_items_json` are not part of the current normalized model. `attendance_form`, `admin_page`, and `control_panel` logic must use the normalized sheets instead.
 
+The logical table `Horaris` has a raw source sheet `GPU001` and a runtime cache sheet `schedule_cache`. New runtime schedule logic should read `schedule_cache`, using `effective_teacher_code` for the teacher currently covering a timetable row and `subject_full_name` for display. `GPU001` remains the source of truth used to rebuild the cache.
+
+`attendance_form` and `control_panel` do not rebuild the cache. They trust the current `schedule_cache`; freshness is guaranteed by external daily rebuilds and rebuilds after leave-of-absence updates.
+
 ## Current Script Responsibilities
 
 - `attendance_form`: teacher-facing form that creates/updates `Faltaré` parent and child rows.

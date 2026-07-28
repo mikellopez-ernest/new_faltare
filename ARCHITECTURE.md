@@ -57,7 +57,7 @@ Current logical table mappings:
 | Logical table | Physical sheet |
 | --- | --- |
 | `Dades de professors` | `Llista` |
-| `Horaris` | `GPU001` |
+| `Horaris` | `GPU001`, `schedule_cache` |
 | `Càrrega lectiva` | `assignatures` |
 | `Faltaré` | `form_data`, `absences`, `recovery`, `profes_guardia` |
 
@@ -69,6 +69,10 @@ Current logical table mappings:
 - `profes_guardia`: guard-duty assignments for control-panel substitutions and corridor duties.
 
 Do not store selected schedule rows or recovery rows as JSON inside `form_data`. Use the child sheets so future scripts can filter, count, and load these records without parsing JSON.
+
+`Horaris -> schedule_cache` is the preferred runtime source for schedule reads. `GPU001` remains the raw source of truth, while the cache stores effective teacher assignments after active leave/substitute resolution and includes `subject_full_name`, avoiding extra reads of `Dades de professors -> leave_absence` and `Càrrega lectiva -> assignatures` in hot paths.
+
+Runtime apps that consume the timetable, including `attendance_form` and `control_panel`, must trust the existing `schedule_cache` and must not trigger `rebuildScheduleCache()`. Cache rebuilds are handled by the schedule/cache owner daily and after leave-of-absence changes.
 
 ## Script Responsibilities
 

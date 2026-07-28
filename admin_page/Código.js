@@ -283,7 +283,7 @@ function buildTeacherByCode_(values) {
     map[normalizeKey_(code)] = {
       code: code,
       name: joinName_(row[2], row[3], row[4]),
-      email: String(row[10] || '').trim(),
+      email: String(row[11] || '').trim(),
     };
 
     return map;
