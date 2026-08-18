@@ -8,7 +8,7 @@ Script ID:
 
 ## Scope
 
-The endpoint shows a daily control table for guard-duty management.
+The endpoint title is `Panell de guàrdies` and it shows a daily control table for guard-duty management.
 
 The first filter is a date picker. It defaults to today and reloads the table when changed.
 
@@ -30,6 +30,9 @@ Current implementation status:
 - Guard teachers are proposed automatically.
 - The header gear enables in-popup editing with dropdowns.
 - The `Desa` button persists assignments to `Faltaré -> profes_guardia`.
+- Time slots with saved assignments show a green check next to the `Gestionar` button.
+- Saved popup assignments show a green check in the popup `DESAT` column.
+- Bootstrap loading, day loading, popup loading, and saving show a full-page disabled overlay with a moving loading icon and a short action description.
 
 ## Database Sources
 
@@ -105,6 +108,39 @@ Primary absence rows come from `Faltaré -> absences`.
 
 The endpoint reads `schedule_cache` as-is. It does not rebuild or refresh the cache during page load, popup load, or save.
 
+## Blocking Loading State
+
+When the app is waiting for a server operation, the page must be visually blocked:
+
+- show a full-page translucent overlay,
+- show a moving loading spinner in the center,
+- show a short description below the spinner, such as `Carregant dades...`, `Carregant guàrdia...`, or `Desant assignacions...`,
+- disable visible controls until the operation finishes.
+
+The blocking state applies at least to:
+
+- initial bootstrap load,
+- selected-day reload,
+- management popup load,
+- assignment save.
+
+## Recovery Notifications
+
+The script exposes a trigger-ready function named `notify_recovery()`.
+
+Expected usage:
+
+- configure a daily Apps Script time trigger manually,
+- the function checks tomorrow's date in the script timezone,
+- it reads `Faltaré -> recovery`,
+- it joins each recovery row to `Faltaré -> form_data` by `row_id`,
+- it groups recovery reminders by `form_data.absence_teacher_email`,
+- it sends one Catalan email per teacher.
+
+The email reminds the teacher that the next day they set a class recovery, including the date and hour for each recovery item.
+
+The function must not modify database rows.
+
 Fallback rule:
 
 - If a `form_data` parent row matches the selected date but has no child rows in `Faltaré -> absences`, the endpoint computes visible rows from `Horaris -> schedule_cache`.
@@ -149,8 +185,9 @@ Rows are grouped by fixed time slots, always in this order:
 For every time slot:
 
 1. Show a green separator row with the time. The data cells are visually merged, and the final column contains a `Gestionar` button.
-2. Immediately under the green row, show a yellow `Guàrdia preferent:` row if there are matching recovery rows for the selected date/time.
-3. Under the yellow row, show the absence rows for that date/time.
+2. If `Faltaré -> profes_guardia` has saved rows for that date/time, show a green saved-check icon next to `Gestionar`.
+3. Immediately under the green row, show a yellow `Guàrdia preferent:` row if there are matching recovery rows for the selected date/time.
+4. Under the yellow row, show the absence rows for that date/time.
 
 If a time slot has no recovery candidates and no absences, it still shows the green time row.
 
@@ -197,6 +234,7 @@ The popup table shows:
 | `AULA` | Classroom from `Faltaré -> absences`. |
 | `TASQUES` | Student work from `Faltaré -> absences.student_work`. |
 | `GUÀRDIA` | Proposed or manually selected teacher who will substitute the absent teacher. |
+| `DESAT` | Green saved-check icon when that popup row already has a saved assignment in `Faltaré -> profes_guardia`. |
 
 If an absence row has `Faltaré -> absences.no_cover_required` set to `TRUE`, its `GUÀRDIA` value defaults to `No cal cobrir`.
 
@@ -253,13 +291,23 @@ If that `GUARDIA` timetable row belongs to an original teacher currently covered
 
 If a teacher is absent at the same date/time, they must not be proposed as a guard teacher for another row.
 
+Each candidate must carry the source/effective identity from `schedule_cache`:
+
+- `source_teacher_code`
+- `source_teacher_name`
+- `effective_teacher_code`
+- `effective_teacher_name`
+- `teacher_was_substituted`
+
+For normal non-substituted rows, source and effective values are the same. For leave substitutions, source identifies the original timetable owner and effective identifies the current substitute.
+
 ## Guard Teacher Proposal Order
 
 The popup proposes guard teachers automatically.
 
 For the selected weekday and time slot, order eligible guard teachers by:
 
-1. Fewest previous substitutions in `Faltaré -> profes_guardia` for that same weekday and time slot.
+1. Fewest previous substitutions in `Faltaré -> profes_guardia` for that same weekday and time slot, using the fairness identity rule below.
 2. If tied, the teacher whose last previous substitution is oldest.
 3. If still tied, first surname initial, A-Z.
 
@@ -279,13 +327,15 @@ Each dropdown contains `No cal cobrir` as the first option, followed by an empty
 
 Teacher options must show the number of previous substitutions for the same weekday and time slot next to the teacher name, for example `Mikel López Villarroya (7)`.
 
+The number in parentheses uses the same fairness identity rule as automatic ordering.
+
 Preferred recovery teachers should be visually identified in the option text, for example `Guàrdia preferent: Mikel López Villarroya (7)`.
 
 Rules:
 
 - `No cal cobrir` is not a teacher assignment and can be selected in more than one row.
 - A teacher can only appear in one popup row at a time.
-- If a user selects a teacher who is already assigned to another row, the previous row becomes empty.
+- If a user selects a teacher who is already assigned to another row, both row assignments are swapped so no teacher is duplicated.
 - A row with an empty `GUÀRDIA` value is visually marked as incomplete.
 - The popup cannot be saved while any selected/proposed teacher has no row or any required row has no teacher, except when there are not enough eligible guard teachers.
 - Rows with `No cal cobrir` do not require a teacher and do not consume an eligible guard teacher.
@@ -296,9 +346,13 @@ When there are not enough eligible guard teachers:
 - It is not valid for an eligible guard teacher to be unassigned while an empty row still exists.
 - The save rule is therefore: every eligible guard teacher must be placed somewhere, and no teacher may be duplicated.
 
-Saving replaces all existing `profes_guardia` rows for the selected date and time with the popup's current nonempty assignments.
+Saving replaces all existing `profes_guardia` rows for the selected date and time with the popup's current nonempty assignments. After a successful save, the popup closes and the selected day reloads so the main table immediately shows the saved-check state.
 
 When `No cal cobrir` is saved, `profes_guardia.teacher_code` stores the special token `__NO_CAL_COBRIR__`.
+
+When a real teacher is saved, the row must also persist the candidate's source/effective identity from `schedule_cache`. This lets future counts know that, for example, Alba made the assignment while covering Gemma's timetable.
+
+When a popup row has a saved real teacher assignment, the popup shows a green saved-check icon in the dedicated `DESAT` column. If the user changes the assignment in edit mode, the row is considered unsaved until `Desa` succeeds again.
 
 ## `profes_guardia` Sheet
 
@@ -321,14 +375,35 @@ To support corridor rows and the ordering rules, the implementation should use t
 | F | `assignment_type` | `absence`, `corridor_lower`, or `corridor_upper`. |
 | G | `row_id` | Parent `form_data.row_id` for absence rows; blank for corridor rows. |
 | H | `teacher_code` | Teacher assigned to the guard duty, or `__NO_CAL_COBRIR__` for a no-cover row. |
-| I | `created_at` | Creation timestamp. |
-| J | `updated_at` | Last update timestamp. |
+| I | `source_teacher_code` | Original timetable owner from `schedule_cache.source_teacher_code`. For ordinary rows, same as effective/assigned teacher. |
+| J | `source_teacher_name` | Original timetable owner full name from `schedule_cache.source_teacher_name`. |
+| K | `effective_teacher_code` | Current/effective teacher from `schedule_cache.effective_teacher_code`. Normally the same value as `teacher_code`. |
+| L | `effective_teacher_name` | Current/effective teacher full name from `schedule_cache.effective_teacher_name`. |
+| M | `teacher_was_substituted` | Boolean from `schedule_cache.teacher_was_substituted`. |
+| N | `created_at` | Creation timestamp. |
+| O | `updated_at` | Last update timestamp. |
 
 Corridor pseudo-ids:
 
 - `corridor-lower:{date}:{time}`
 - `corridor-upper:{date}:{time}`
 
-Counting previous substitutions for proposal order uses `teacher_code`, `weekday`, and `time`.
+Counting previous substitutions for proposal order uses `weekday`, `time`, and a fairness identity built from the current candidate:
+
+- candidate assigned/effective teacher code,
+- candidate source teacher code.
+
+For each previous `profes_guardia` row in the same weekday/time, count the row once when any of these previous-row fields matches the current fairness identity:
+
+- `teacher_code`
+- `source_teacher_code`
+- `effective_teacher_code`
+
+This means:
+
+- During Gemma's leave, Alba appears as the effective GUARDIA teacher, but Alba's bracket count includes Gemma's previous rows for that weekday/time.
+- While Alba covers Gemma, saved rows store `teacher_code = Alba`, `source_teacher_code = Gemma`, and `effective_teacher_code = Alba`.
+- When Gemma returns and the cache again exposes Gemma as source/effective, Gemma's bracket count still includes Alba's rows that were saved with `source_teacher_code = Gemma`.
+- Unrelated substitutions remain separated by their own source/effective identity where possible.
 
 Finding the oldest/latest previous substitution uses `assignment_date` and then `updated_at` as a tie-breaker.

@@ -236,6 +236,81 @@
         color: #52606d;
       }
 
+      .saved-check {
+        display: inline-grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        margin-left: 8px;
+        border-radius: 50%;
+        background: #16a34a;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 900;
+        line-height: 1;
+        vertical-align: middle;
+      }
+
+      .saved-cell {
+        width: 56px;
+        text-align: center;
+        vertical-align: middle;
+      }
+
+      .saved-cell .saved-check {
+        margin-left: 0;
+      }
+
+      .manage-saved {
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 4px;
+      }
+
+      .busy-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(244, 246, 248, 0.76);
+        backdrop-filter: blur(2px);
+      }
+
+      .busy-overlay.open {
+        display: flex;
+      }
+
+      .busy-box {
+        display: grid;
+        justify-items: center;
+        gap: 12px;
+        padding: 22px 28px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
+        color: #344054;
+        font-weight: 700;
+      }
+
+      .busy-spinner {
+        width: 38px;
+        height: 38px;
+        border: 4px solid #bfdbfe;
+        border-top-color: #1d4ed8;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
       .error {
         color: #b42318;
       }
@@ -377,7 +452,7 @@
     <main>
       <div class="toolbar">
         <div>
-          <h1>Control panel</h1>
+          <h1>Panell de guàrdies</h1>
           <p class="user" id="user">Carregant...</p>
         </div>
         <label>
@@ -415,6 +490,13 @@
       <div class="status" id="status"></div>
     </main>
 
+    <div class="busy-overlay" id="busyOverlay" aria-live="polite" aria-busy="true">
+      <div class="busy-box">
+        <div class="busy-spinner" aria-hidden="true"></div>
+        <div id="busyText">Carregant dades...</div>
+      </div>
+    </div>
+
     <div class="modal-backdrop" id="managementModal" role="dialog" aria-modal="true" aria-labelledby="managementTitle">
       <section class="modal">
         <header class="modal-header">
@@ -437,6 +519,7 @@
                 <th>Aula</th>
                 <th>Tasques</th>
                 <th>Guàrdia</th>
+                <th>Desat</th>
               </tr>
             </thead>
             <tbody id="managementRows"></tbody>
@@ -469,20 +552,27 @@
       const editManagementButton = document.getElementById('editManagement');
       const closeManagementButton = document.getElementById('closeManagement');
       const saveManagementButton = document.getElementById('saveManagement');
+      const busyOverlay = document.getElementById('busyOverlay');
+      const busyText = document.getElementById('busyText');
 
       let managementData = null;
       let managementEditMode = false;
       let managementSaving = false;
 
+      showBusy('Carregant dades...');
       google.script.run
         .withSuccessHandler(function(data) {
+          hideBusy();
           const userEmail = data.user && data.user.email ? data.user.email : 'Usuari sense correu disponible';
           document.getElementById('user').textContent = userEmail;
           dateFilter.value = data.today;
           initializeDatePickers(document);
           renderDay(data.day);
         })
-        .withFailureHandler(showError)
+        .withFailureHandler(function(error) {
+          hideBusy();
+          showError(error);
+        })
         .getControlPanelBootstrapData();
 
       dateFilter.addEventListener('change', function() {
@@ -535,19 +625,22 @@
           : managementData.candidates.filter(function(candidate) {
             return candidate.code === selectedCode;
           })[0];
+        const currentRow = managementData.rows[rowIndex];
+        const previousCandidate = currentRow.guardTeacherCode === NO_COVER_CODE
+          ? { code: NO_COVER_CODE, name: NO_COVER_LABEL }
+          : managementData.candidates.filter(function(candidate) {
+            return candidate.code === currentRow.guardTeacherCode;
+          })[0];
 
         if (selectedCode && selectedCode !== NO_COVER_CODE) {
           managementData.rows.forEach(function(row, index) {
             if (index !== rowIndex && row.guardTeacherCode === selectedCode) {
-              row.guardTeacherCode = '';
-              row.guardTeacherName = '';
+              applyCandidateToManagementRow(row, previousCandidate);
             }
           });
         }
 
-        managementData.rows[rowIndex].guardTeacherCode = selectedCode;
-        managementData.rows[rowIndex].guardTeacherName = selectedCandidate ? selectedCandidate.name : '';
-        managementData.rows[rowIndex].noCoverRequired = selectedCode === NO_COVER_CODE;
+        applyCandidateToManagementRow(currentRow, selectedCandidate);
         renderManagementRows();
       });
 
@@ -678,6 +771,27 @@
         ].join('-');
       }
 
+      function showBusy(message) {
+        busyText.textContent = message || 'Carregant dades...';
+        busyOverlay.classList.add('open');
+        document.querySelectorAll('button, input, select').forEach(function(control) {
+          control.dataset.busyDisabled = control.disabled ? 'already' : 'set';
+          control.disabled = true;
+        });
+      }
+
+      function hideBusy() {
+        busyOverlay.classList.remove('open');
+        document.querySelectorAll('[data-busy-disabled]').forEach(function(control) {
+          if (control.dataset.busyDisabled === 'set') {
+            control.disabled = false;
+          }
+
+          delete control.dataset.busyDisabled;
+        });
+        updateManagementSaveState();
+      }
+
       function shiftDate(deltaDays) {
         if (state.loading) {
           return;
@@ -705,16 +819,19 @@
         statusElement.className = 'status';
         statusElement.textContent = 'Carregant dades...';
         rowsElement.innerHTML = '<tr class="empty-row"><td colspan="6">Carregant dades...</td></tr>';
+        showBusy('Carregant dades...');
 
         google.script.run
           .withSuccessHandler(function(day) {
             state.loading = false;
             setDateControlsDisabled(false);
+            hideBusy();
             renderDay(day);
           })
           .withFailureHandler(function(error) {
             state.loading = false;
             setDateControlsDisabled(false);
+            hideBusy();
             showError(error);
           })
           .getControlPanelDayData({ date: date });
@@ -737,15 +854,18 @@
         managementModal.classList.add('open');
         managementSubtitle.textContent = dateFilter.value + ' · ' + time;
         managementStatus.textContent = 'Carregant...';
-        managementRowsElement.innerHTML = '<tr class="empty-row"><td colspan="6">Carregant dades...</td></tr>';
+        managementRowsElement.innerHTML = '<tr class="empty-row"><td colspan="7">Carregant dades...</td></tr>';
+        showBusy('Carregant guàrdia...');
 
         google.script.run
           .withSuccessHandler(function(data) {
+            hideBusy();
             managementData = data;
             managementSubtitle.textContent = data.date + ' · ' + data.time;
             renderManagementRows();
           })
           .withFailureHandler(function(error) {
+            hideBusy();
             managementStatus.textContent = error && error.message ? error.message : 'No s\'ha pogut carregar la gestió.';
             managementRowsElement.innerHTML = '';
           })
@@ -775,6 +895,7 @@
               '<td></td>' +
               '<td colspan="4" class="merged-task">' + escapeHtml(row.mergedText) + '</td>' +
               '<td>' + guardCell + '</td>' +
+              '<td class="saved-cell">' + renderSavedCheck(row.guardAssignmentSaved) + '</td>' +
               '</tr>';
           }
 
@@ -785,6 +906,7 @@
             '<td>' + escapeHtml(row.classroom) + '</td>' +
             '<td>' + escapeHtml(row.studentWork) + '</td>' +
             '<td>' + guardCell + '</td>' +
+            '<td class="saved-cell">' + renderSavedCheck(row.guardAssignmentSaved) + '</td>' +
             '</tr>';
         }).join('');
 
@@ -806,9 +928,10 @@
 
       function renderGuardSelect(row, rowIndex) {
         const noCoverSelected = row.guardTeacherCode === NO_COVER_CODE ? ' selected' : '';
+        const emptySelected = !row.guardTeacherCode ? ' selected' : '';
         const options = [
           '<option value="' + NO_COVER_CODE + '"' + noCoverSelected + '>' + NO_COVER_LABEL + '</option>',
-          '<option value="">Sense assignar</option>',
+          '<option value=""' + emptySelected + '>Sense assignar</option>',
         ].concat(managementData.candidates.map(function(candidate) {
           const selected = candidate.code === row.guardTeacherCode ? ' selected' : '';
           const label = (candidate.preferredRecovery ? 'Guàrdia preferent: ' : '') +
@@ -817,6 +940,46 @@
         }));
 
         return '<select class="guard-select" data-row-index="' + rowIndex + '">' + options.join('') + '</select>';
+      }
+
+      function renderSavedCheck(isSaved) {
+        return isSaved ? '<span class="saved-check" title="Assignació desada">✓</span>' : '';
+      }
+
+      function applyCandidateToManagementRow(row, candidate) {
+        if (!candidate || !candidate.code) {
+          row.guardTeacherCode = '';
+          row.guardTeacherName = '';
+          row.guardSourceTeacherCode = '';
+          row.guardSourceTeacherName = '';
+          row.guardEffectiveTeacherCode = '';
+          row.guardEffectiveTeacherName = '';
+          row.guardTeacherWasSubstituted = false;
+          row.noCoverRequired = false;
+          row.guardAssignmentSaved = false;
+          return;
+        }
+
+        row.guardTeacherCode = candidate.code;
+        row.guardTeacherName = candidate.name || candidate.code;
+        row.noCoverRequired = candidate.code === NO_COVER_CODE;
+        row.guardAssignmentSaved = false;
+
+        if (row.noCoverRequired) {
+          row.guardSourceTeacherCode = '';
+          row.guardSourceTeacherName = '';
+          row.guardEffectiveTeacherCode = '';
+          row.guardEffectiveTeacherName = '';
+          row.guardTeacherWasSubstituted = false;
+          row.guardAssignmentSaved = false;
+          return;
+        }
+
+        row.guardSourceTeacherCode = candidate.sourceTeacherCode || candidate.code;
+        row.guardSourceTeacherName = candidate.sourceTeacherName || candidate.name || candidate.code;
+        row.guardEffectiveTeacherCode = candidate.effectiveTeacherCode || candidate.code;
+        row.guardEffectiveTeacherName = candidate.effectiveTeacherName || candidate.name || candidate.code;
+        row.guardTeacherWasSubstituted = Boolean(candidate.teacherWasSubstituted);
       }
 
       function updateManagementSaveState() {
@@ -881,17 +1044,21 @@
         managementSaving = true;
         saveManagementButton.disabled = true;
         managementStatus.textContent = 'Desant...';
+        showBusy('Desant assignacions...');
 
         google.script.run
           .withSuccessHandler(function(result) {
+            const savedDate = managementData.date || dateFilter.value;
             managementSaving = false;
             managementEditMode = false;
+            hideBusy();
             editManagementButton.classList.remove('active');
-            managementStatus.textContent = 'Assignacions desades: ' + result.saved + '.';
-            renderManagementRows();
+            closeManagement();
+            loadDay(savedDate);
           })
           .withFailureHandler(function(error) {
             managementSaving = false;
+            hideBusy();
             managementStatus.textContent = error && error.message ? error.message : 'No s\'han pogut desar les assignacions.';
             updateManagementSaveState();
           })
@@ -908,7 +1075,7 @@
         let recoveryCount = 0;
 
         day.slots.forEach(function(slot) {
-          html.push(renderTimeRow(slot.time));
+          html.push(renderTimeRow(slot));
 
           if (slot.recoveryTeachers.length) {
             recoveryCount += slot.recoveryTeachers.length;
@@ -929,10 +1096,11 @@
           day.date + ' · ' + absenceCount + ' absències · ' + recoveryCount + ' guàrdies preferents';
       }
 
-      function renderTimeRow(time) {
+      function renderTimeRow(slot) {
+        const time = slot.time;
         return '<tr class="time-row">' +
           '<td colspan="5">' + escapeHtml(time) + '</td>' +
-          '<td class="manage-cell"><button type="button" data-time="' + escapeHtml(time) + '">Gestionar</button></td>' +
+          '<td class="manage-cell"><span class="manage-saved"><button type="button" data-time="' + escapeHtml(time) + '">Gestionar</button>' + renderSavedCheck(slot.assignmentsSaved) + '</span></td>' +
           '</tr>';
       }
 

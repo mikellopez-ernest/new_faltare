@@ -44,7 +44,7 @@ The logical table `Faltaré` is a spreadsheet with these physical sheets:
 - `recovery`
 - `profes_guardia`
 
-`form_data` is the parent table. `absences` and `recovery` are child tables linked by `row_id`. `profes_guardia` stores guard-duty teacher assignments created in `control_panel`.
+`form_data` is the parent table. `absences` and `recovery` are child tables linked by `row_id`. `profes_guardia` stores guard-duty teacher assignments created in `control_panel`, including source/effective teacher identity for leave-substitute fairness counts.
 
 The old JSON fields `selected_schedule_items_json` and `recovery_items_json` are not part of the current normalized model. `attendance_form`, `admin_page`, and `control_panel` logic must use the normalized sheets instead.
 

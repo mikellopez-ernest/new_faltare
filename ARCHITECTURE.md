@@ -66,7 +66,7 @@ Current logical table mappings:
 - `form_data`: one parent row per submitted/updated absence request.
 - `absences`: child rows for selected schedule/class items, linked by `row_id`.
 - `recovery`: child rows for recovery date/time items, linked by `row_id`.
-- `profes_guardia`: guard-duty assignments for control-panel substitutions and corridor duties.
+- `profes_guardia`: guard-duty assignments for control-panel substitutions and corridor duties. It also stores source/effective teacher identity from `Horaris -> schedule_cache` so guard-count fairness can follow an original timetable owner and the active substitute covering that timetable.
 
 Do not store selected schedule rows or recovery rows as JSON inside `form_data`. Use the child sheets so future scripts can filter, count, and load these records without parsing JSON.
 

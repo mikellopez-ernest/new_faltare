@@ -47,6 +47,8 @@ Current logical table mappings:
 - `recovery`: recovery date/time rows linked to `form_data.row_id`.
 - `profes_guardia`: guard-duty assignments created by the control panel, linked to absence/corridor assignment IDs.
 
+`profes_guardia` stores the assigned guard teacher plus the source/effective teacher identity from `Horaris -> schedule_cache`. This lets guard-count fairness treat an original teacher and the substitute currently covering that teacher's timetable as one continuity for the relevant weekday/time slot.
+
 Schedule selections and recovery items must not be stored as JSON fields in `form_data`.
 
 `Horaris -> GPU001` remains the raw timetable source, but runtime schedule reads should prefer `Horaris -> schedule_cache`. The cache includes effective teacher substitutions and subject display names, so apps can use `effective_teacher_code`, `effective_teacher_name`, and `subject_full_name` without also opening `leave_absence` or `assignatures` for normal schedule display.

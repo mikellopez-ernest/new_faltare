@@ -113,8 +113,13 @@ Rows can point either to a real absence row from `absences` or to one of the cor
 | F | `assignment_type` | `absence`, `corridor_lower`, or `corridor_upper`. |
 | G | `row_id` | Parent `form_data.row_id` for absence rows; blank for corridor rows. |
 | H | `teacher_code` | Teacher assigned to the guard duty. May be the special non-teacher token `__NO_CAL_COBRIR__` when no substitution is required. |
-| I | `created_at` | Creation timestamp. |
-| J | `updated_at` | Last update timestamp. |
+| I | `source_teacher_code` | Original timetable owner from `Horaris -> schedule_cache.source_teacher_code`. For ordinary rows, usually the same as the effective/assigned teacher. |
+| J | `source_teacher_name` | Original timetable owner full name from `Horaris -> schedule_cache.source_teacher_name`. |
+| K | `effective_teacher_code` | Current/effective guard teacher from `Horaris -> schedule_cache.effective_teacher_code`. Normally the same value as `teacher_code`. |
+| L | `effective_teacher_name` | Current/effective guard teacher full name from `Horaris -> schedule_cache.effective_teacher_name`. |
+| M | `teacher_was_substituted` | Boolean copied from `Horaris -> schedule_cache.teacher_was_substituted`. |
+| N | `created_at` | Creation timestamp. |
+| O | `updated_at` | Last update timestamp. |
 
 Corridor pseudo-ids:
 
@@ -146,3 +151,5 @@ When saving control-panel guard-duty assignments:
 3. Use the explicit `profes_guardia` headers above.
 
 `__NO_CAL_COBRIR__` is a special saved assignment value, not a real teacher code. It is allowed to appear in more than one row for the same slot and must not count as a duplicate teacher assignment.
+
+For real teacher assignments, `profes_guardia` stores both source and effective teacher identity from `schedule_cache`. This allows guard-count fairness to treat an original teacher and the substitute currently covering that teacher's timetable as one continuity for the relevant weekday/time slot.

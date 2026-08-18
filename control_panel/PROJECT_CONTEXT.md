@@ -46,7 +46,7 @@ Keep logical table names separate from sheet names:
 
 ## Current Behavior
 
-The page shows a selected-day guard-duty control table.
+The page is titled `Panell de guàrdies` and shows a selected-day guard-duty control table.
 
 - The date filter defaults to today.
 - The date filter has left/right arrow buttons to move one day backward or forward.
@@ -62,4 +62,10 @@ The page shows a selected-day guard-duty control table.
 - Active `Dades de professors -> leave_absence` rows are consumed through `Horaris -> schedule_cache`; the control panel does not recalculate leave substitution for normal schedule reads.
 - The control panel trusts the existing cache and must not call `rebuildScheduleCache()` or trigger the cache rebuild endpoint.
 - Clicking `Gestionar` opens a popup for the selected date/time, proposes guard teachers, allows editing through the header gear, and saves assignments to `Faltaré -> profes_guardia`.
+- A green check next to `Gestionar` means that date/time has saved rows in `profes_guardia`.
+- A green check in the popup `Desat` column means that row assignment has been saved.
+- After saving the popup, it closes and reloads the selected day so the main table immediately reflects the saved state.
 - The saved `profes_guardia.teacher_code` value `__NO_CAL_COBRIR__` is a special non-teacher token and may appear more than once in the same time slot.
+- `profes_guardia` also stores `source_teacher_code/name`, `effective_teacher_code/name`, and `teacher_was_substituted` from `schedule_cache`. Guard-count fairness uses the candidate's source/effective identity, so a leave substitute and the original timetable owner share the count history for the relevant weekday/time slot.
+- Bootstrap, day loading, popup loading, and saving show a full-page disabled loading overlay.
+- `notify_recovery()` is available for a daily trigger. It emails teachers in Catalan when they have recovery rows scheduled for the next day.

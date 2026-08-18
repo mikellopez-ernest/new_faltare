@@ -47,6 +47,11 @@ const PROFES_GUARDIA_HEADERS = [
   'assignment_type',
   'row_id',
   'teacher_code',
+  'source_teacher_code',
+  'source_teacher_name',
+  'effective_teacher_code',
+  'effective_teacher_name',
+  'teacher_was_substituted',
   'created_at',
   'updated_at',
 ];
@@ -87,8 +92,85 @@ const TIME_SLOTS = [
 function doGet() {
   return HtmlService
     .createHtmlOutputFromFile('Index')
-    .setTitle('Control panel')
+    .setTitle('Panell de guàrdies')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function notify_recovery() {
+  const timezone = Session.getScriptTimeZone() || 'Europe/Madrid';
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const targetDate = Utilities.formatDate(tomorrow, timezone, 'yyyy-MM-dd');
+  return notifyRecoveryForDate_(targetDate);
+}
+
+function notifyRecoveryForDate_(targetDate) {
+  const selectedDate = normalizeDate_(targetDate);
+
+  if (!selectedDate) {
+    throw new Error('Cal indicar una data vàlida per notificar recuperacions.');
+  }
+
+  const tableRegistry = loadTableRegistry_();
+  const formDataValues = readSheetValues_(openFaltareSheet_(tableRegistry, FALTARE_SHEETS.FORM_DATA));
+  const recoveryValues = readSheetValues_(openFaltareSheet_(tableRegistry, FALTARE_SHEETS.RECOVERY));
+  const formDataByRowId = buildFormDataByRowId_(formDataValues);
+  const notificationsByEmail = {};
+
+  rowsToObjects_(recoveryValues).forEach(function(row) {
+    if (normalizeDate_(row.date) !== selectedDate) {
+      return;
+    }
+
+    const parent = formDataByRowId[normalizeKey_(row.row_id)];
+
+    if (!parent) {
+      return;
+    }
+
+    const email = String(parent.absence_teacher_email || '').trim();
+
+    if (!email) {
+      return;
+    }
+
+    if (!notificationsByEmail[email]) {
+      notificationsByEmail[email] = {
+        email: email,
+        teacherName: parent.absence_teacher_name || '',
+        items: [],
+      };
+    }
+
+    notificationsByEmail[email].items.push({
+      date: selectedDate,
+      time: normalizeTime_(row.time) || String(row.time || '').trim(),
+      context: parent.context || '',
+    });
+  });
+
+  const emails = Object.keys(notificationsByEmail);
+
+  emails.forEach(function(email) {
+    const notification = notificationsByEmail[email];
+    notification.items.sort(function(a, b) {
+      return String(a.time || '').localeCompare(String(b.time || ''), 'ca');
+    });
+    MailApp.sendEmail({
+      to: email,
+      subject: 'Recordatori de recuperació de classe',
+      body: buildRecoveryNotificationBody_(notification),
+    });
+  });
+
+  return {
+    ok: true,
+    date: selectedDate,
+    notifiedTeachers: emails.length,
+    recoveryItems: emails.reduce(function(total, email) {
+      return total + notificationsByEmail[email].items.length;
+    }, 0),
+  };
 }
 
 function getControlPanelBootstrapData() {
@@ -113,6 +195,7 @@ function getControlPanelDayData(payload) {
   const formDataValues = readSheetValues_(openFaltareSheet_(tableRegistry, FALTARE_SHEETS.FORM_DATA));
   const absenceValues = readSheetValues_(openFaltareSheet_(tableRegistry, FALTARE_SHEETS.ABSENCES));
   const recoveryValues = readSheetValues_(openFaltareSheet_(tableRegistry, FALTARE_SHEETS.RECOVERY));
+  const guardHistoryValues = readSheetValues_(openFaltareSheet_(tableRegistry, FALTARE_SHEETS.PROFES_GUARDIA));
   const professorValues = readSheetValues_(openConfiguredTableSheet_(tableRegistry, TABLE_NAMES.PROFESSORS_DATA));
   const scheduleCacheValues = readSheetValues_(openTableSheetByName_(tableRegistry, TABLE_NAMES.SCHEDULES, SCHEDULE_CACHE_SHEET_NAME));
 
@@ -128,6 +211,7 @@ function getControlPanelDayData(payload) {
     selectedDate
   );
   const recoveryByTime = buildRecoveryByTime_(recoveryValues, formDataByRowId, teachersByCode, selectedDate);
+  const savedAssignmentsByTime = buildSavedAssignmentsByTime_(guardHistoryValues, selectedDate);
 
   return {
     date: selectedDate,
@@ -136,6 +220,7 @@ function getControlPanelDayData(payload) {
         time: time,
         absences: absencesByTime[time] || [],
         recoveryTeachers: recoveryByTime[time] || [],
+        assignmentsSaved: Boolean(savedAssignmentsByTime[time]),
       };
     }),
   };
@@ -206,6 +291,7 @@ function getManagementSlotData(payload) {
     if (row.noCoverRequired) {
       row.guardTeacherCode = NO_COVER_CODE;
       row.guardTeacherName = NO_COVER_LABEL;
+      clearGuardIdentity_(row);
       return;
     }
 
@@ -213,8 +299,7 @@ function getManagementSlotData(payload) {
     candidateIndex += 1;
 
     if (candidate) {
-      row.guardTeacherCode = candidate.code;
-      row.guardTeacherName = candidate.name;
+      applyGuardCandidateToRow_(row, candidate);
     }
   });
   applySavedGuardAssignments_(rows, guardHistoryValues, teachersByCode, selectedDate, selectedTime);
@@ -267,6 +352,11 @@ function saveManagementSlotData(payload) {
       row.type || 'absence',
       row.rowId || '',
       row.guardTeacherCode || '',
+      row.guardSourceTeacherCode || '',
+      row.guardSourceTeacherName || '',
+      row.guardEffectiveTeacherCode || '',
+      row.guardEffectiveTeacherName || '',
+      Boolean(row.guardTeacherWasSubstituted),
       now,
       now,
     ];
@@ -551,6 +641,24 @@ function buildRecoveryByTime_(sheetData, formDataByRowId, teachersByCode, select
   return byTime;
 }
 
+function buildSavedAssignmentsByTime_(sheetData, selectedDate) {
+  const byTime = {};
+
+  rowsToObjects_(sheetData).forEach(function(row) {
+    if (normalizeDate_(row.assignment_date) !== selectedDate) {
+      return;
+    }
+
+    const time = normalizeTime_(row.time);
+
+    if (time && TIME_SLOTS.indexOf(time) !== -1) {
+      byTime[time] = true;
+    }
+  });
+
+  return byTime;
+}
+
 function filterCoverableAbsences_(rows) {
   return rows.filter(function(row) {
     return !isGuardDutyAbsence_(row);
@@ -702,15 +810,20 @@ function buildGuardTeacherCandidates_(scheduleCacheValues, teachersByCode, guard
         name: teacher.name,
         surname1: teacher.surname1 || '',
         preferredRecovery: false,
+        sourceTeacherCode: String(row.sourceTeacherCode || row.effectiveTeacherCode || teacher.code || '').trim(),
+        sourceTeacherName: String(row.sourceTeacherName || row.effectiveTeacherName || teacher.name || '').trim(),
+        effectiveTeacherCode: String(row.effectiveTeacherCode || teacher.code || '').trim(),
+        effectiveTeacherName: String(row.effectiveTeacherName || teacher.name || '').trim(),
+        teacherWasSubstituted: parseBoolean_(row.teacherWasSubstituted),
       };
     }
   });
 
-  const history = buildGuardHistoryStats_(guardHistoryValues, dayNumber, selectedTime);
+  const historyRows = rowsToObjects_(guardHistoryValues);
 
   return Object.keys(candidatesByCode).map(function(codeKey) {
     const candidate = candidatesByCode[codeKey];
-    const stats = history[codeKey] || { count: 0, lastSortValue: 0 };
+    const stats = buildGuardHistoryStatsForCandidate_(historyRows, dayNumber, selectedTime, candidate);
 
     return {
       code: candidate.code,
@@ -719,6 +832,11 @@ function buildGuardTeacherCandidates_(scheduleCacheValues, teachersByCode, guard
       lastSortValue: stats.lastSortValue,
       surnameInitial: normalizeKey_(candidate.surname1).charAt(0),
       preferredRecovery: Boolean(candidate.preferredRecovery),
+      sourceTeacherCode: candidate.sourceTeacherCode || candidate.code,
+      sourceTeacherName: candidate.sourceTeacherName || candidate.name,
+      effectiveTeacherCode: candidate.effectiveTeacherCode || candidate.code,
+      effectiveTeacherName: candidate.effectiveTeacherName || candidate.name,
+      teacherWasSubstituted: Boolean(candidate.teacherWasSubstituted),
     };
   }).sort(function(a, b) {
     return Number(b.preferredRecovery) - Number(a.preferredRecovery) ||
@@ -758,6 +876,11 @@ function buildRecoveryTeacherCandidates_(sheetData, formDataByRowId, teachersByC
         name: teacher.name,
         surname1: teacher.surname1 || '',
         preferredRecovery: true,
+        sourceTeacherCode: teacher.code,
+        sourceTeacherName: teacher.name,
+        effectiveTeacherCode: teacher.code,
+        effectiveTeacherName: teacher.name,
+        teacherWasSubstituted: false,
       };
     }
   });
@@ -767,35 +890,60 @@ function buildRecoveryTeacherCandidates_(sheetData, formDataByRowId, teachersByC
   });
 }
 
-function buildGuardHistoryStats_(guardHistoryValues, dayNumber, selectedTime) {
-  const statsByTeacher = {};
+function buildGuardHistoryStatsForCandidate_(historyRows, dayNumber, selectedTime, candidate) {
+  const candidateKeys = buildGuardCandidateHistoryKeys_(candidate);
+  const stats = {
+    count: 0,
+    lastSortValue: 0,
+  };
 
-  rowsToObjects_(guardHistoryValues).forEach(function(row) {
+  historyRows.forEach(function(row) {
     if (Number(row.weekday) !== dayNumber || normalizeTime_(row.time) !== selectedTime) {
       return;
     }
 
-    const teacherCodeKey = normalizeKey_(row.teacher_code);
+    const rowKeys = [
+      row.teacher_code,
+      row.source_teacher_code,
+      row.effective_teacher_code,
+    ].map(normalizeKey_).filter(Boolean);
 
-    if (!teacherCodeKey || teacherCodeKey === normalizeKey_(NO_COVER_CODE)) {
+    if (!rowKeys.length || rowKeys.indexOf(normalizeKey_(NO_COVER_CODE)) !== -1) {
       return;
     }
 
-    if (!statsByTeacher[teacherCodeKey]) {
-      statsByTeacher[teacherCodeKey] = {
-        count: 0,
-        lastSortValue: 0,
-      };
+    const matchesCandidate = rowKeys.some(function(rowKey) {
+      return Boolean(candidateKeys[rowKey]);
+    });
+
+    if (!matchesCandidate) {
+      return;
     }
 
-    statsByTeacher[teacherCodeKey].count += 1;
-    statsByTeacher[teacherCodeKey].lastSortValue = Math.max(
-      statsByTeacher[teacherCodeKey].lastSortValue,
+    stats.count += 1;
+    stats.lastSortValue = Math.max(
+      stats.lastSortValue,
       getHistorySortValue_(row.assignment_date, row.updated_at)
     );
   });
 
-  return statsByTeacher;
+  return stats;
+}
+
+function buildGuardCandidateHistoryKeys_(candidate) {
+  return [
+    candidate && candidate.code,
+    candidate && candidate.sourceTeacherCode,
+    candidate && candidate.effectiveTeacherCode,
+  ].reduce(function(keys, value) {
+    const key = normalizeKey_(value);
+
+    if (key && key !== normalizeKey_(NO_COVER_CODE)) {
+      keys[key] = true;
+    }
+
+    return keys;
+  }, {});
 }
 
 function applySavedGuardAssignments_(rows, guardHistoryValues, teachersByCode, selectedDate, selectedTime) {
@@ -810,12 +958,13 @@ function applySavedGuardAssignments_(rows, guardHistoryValues, teachersByCode, s
     const teacherCode = String(row.teacher_code || '').trim();
 
     if (absenceId && teacherCode) {
-      savedByAbsenceId[absenceId] = teacherCode;
+      savedByAbsenceId[absenceId] = row;
     }
   });
 
   rows.forEach(function(row) {
-    const teacherCode = savedByAbsenceId[row.id];
+    const saved = savedByAbsenceId[row.id];
+    const teacherCode = saved ? String(saved.teacher_code || '').trim() : '';
 
     if (!teacherCode) {
       return;
@@ -824,13 +973,40 @@ function applySavedGuardAssignments_(rows, guardHistoryValues, teachersByCode, s
     if (teacherCode === NO_COVER_CODE) {
       row.guardTeacherCode = NO_COVER_CODE;
       row.guardTeacherName = NO_COVER_LABEL;
+      clearGuardIdentity_(row);
       return;
     }
 
     const teacher = teachersByCode[normalizeKey_(teacherCode)] || {};
     row.guardTeacherCode = teacherCode;
     row.guardTeacherName = teacher.name || teacherCode;
+    row.guardAssignmentSaved = true;
+    row.guardSourceTeacherCode = saved.source_teacher_code || teacherCode;
+    row.guardSourceTeacherName = saved.source_teacher_name || row.guardTeacherName;
+    row.guardEffectiveTeacherCode = saved.effective_teacher_code || teacherCode;
+    row.guardEffectiveTeacherName = saved.effective_teacher_name || row.guardTeacherName;
+    row.guardTeacherWasSubstituted = parseBoolean_(saved.teacher_was_substituted);
   });
+}
+
+function applyGuardCandidateToRow_(row, candidate) {
+  row.guardTeacherCode = candidate.code;
+  row.guardTeacherName = candidate.name;
+  row.guardAssignmentSaved = false;
+  row.guardSourceTeacherCode = candidate.sourceTeacherCode || candidate.code;
+  row.guardSourceTeacherName = candidate.sourceTeacherName || candidate.name;
+  row.guardEffectiveTeacherCode = candidate.effectiveTeacherCode || candidate.code;
+  row.guardEffectiveTeacherName = candidate.effectiveTeacherName || candidate.name;
+  row.guardTeacherWasSubstituted = Boolean(candidate.teacherWasSubstituted);
+}
+
+function clearGuardIdentity_(row) {
+  row.guardSourceTeacherCode = '';
+  row.guardSourceTeacherName = '';
+  row.guardEffectiveTeacherCode = '';
+  row.guardEffectiveTeacherName = '';
+  row.guardTeacherWasSubstituted = false;
+  row.guardAssignmentSaved = false;
 }
 
 function validateGuardAssignments_(rows) {
@@ -1035,6 +1211,39 @@ function sortAbsenceRows_(a, b) {
   return String(a.teacherName || '').localeCompare(String(b.teacherName || ''), 'ca') ||
     String(a.subject || '').localeCompare(String(b.subject || ''), 'ca') ||
     String(a.group || '').localeCompare(String(b.group || ''), 'ca');
+}
+
+function buildRecoveryNotificationBody_(notification) {
+  const teacherName = String(notification.teacherName || '').trim();
+  const lines = [
+    'Bon dia' + (teacherName ? ', ' + teacherName : '') + ',',
+    '',
+    'Et recordem que demà tens programada una recuperació de classe:',
+    '',
+  ];
+
+  notification.items.forEach(function(item) {
+    lines.push('- Dia ' + formatDisplayDate_(item.date) + ' a les ' + item.time + '.');
+  });
+
+  lines.push(
+    '',
+    'Aquest missatge és un recordatori automàtic del Panell de guàrdies.',
+    '',
+    'Gràcies.'
+  );
+
+  return lines.join('\n');
+}
+
+function formatDisplayDate_(dateString) {
+  const parts = String(dateString || '').split('-');
+
+  if (parts.length !== 3) {
+    return String(dateString || '');
+  }
+
+  return [parts[2], parts[1], parts[0]].join('/');
 }
 
 function getConfiguredDataSources_() {

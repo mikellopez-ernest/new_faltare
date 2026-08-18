@@ -31,6 +31,10 @@ Column B in registry sheet `tables` is always a spreadsheet ID, never a sheet na
 
 ## Required Tables
 
+The current visible admin table actively reads only `Faltaré -> form_data` and `Dades de professors -> Llista`.
+
+The normalized `Faltaré` child sheets are part of the same logical data model and must be used by future admin views that need child-row detail:
+
 | Logical table | Sheet |
 | --- | --- |
 | `Faltaré` | `form_data`, `absences`, `recovery`, `profes_guardia` |
@@ -55,7 +59,7 @@ Recovery date/time rows live in `Faltaré -> recovery`.
 
 Guard-duty assignments live in `Faltaré -> profes_guardia`.
 
-`absences` and `recovery` relate to `form_data` with `row_id`. `profes_guardia` relates to absence/corridor assignment identifiers and stores the assigned guard teacher code.
+`absences` and `recovery` relate to `form_data` with `row_id`. `profes_guardia` relates to absence/corridor assignment identifiers and stores the assigned guard teacher code plus source/effective teacher identity from `Horaris -> schedule_cache`.
 
 ## Data Loading
 
