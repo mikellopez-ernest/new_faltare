@@ -67,6 +67,18 @@ Core constants and helpers live in `Código.js`:
 
 Admin page behavior is specified in `ADMIN_PAGE_SPEC.md`.
 
+## Access Control
+
+The web app is domain-restricted in `appsscript.json` and also protected by the script property `access_granted`.
+
+`access_granted` is a comma-separated list of allowed direct institutional emails and/or role names.
+
+- Direct entries containing `@` are allowed emails.
+- Role entries are resolved through logical table `Càrrega lectiva`, sheet `carrecs` column A to column D, then sheet `professors` column Q to institutional email column L.
+- `doGet()`, `getAdminPageData()`, `getAdminRecord()`, `saveAdminRecord()`, and `markRowsManaged()` must enforce the same access decision.
+
+Run `grantRequiredPermissions()` manually after adding this feature or changing scopes/properties if Apps Script needs an authorization prompt.
+
 `Dades de professors -> Llista` uses the updated schema:
 
 - Column F `REDUIT` is the key used to resolve `form_data.teacher_code`.
@@ -95,3 +107,11 @@ The script currently requires these logical tables from the registry:
 `Faltaré -> form_data` includes column Y named `managed`, used by the admin filter `Gestionades`.
 
 Do not read selected schedules or recovery items from JSON fields in `form_data`; those fields are legacy and not part of the current normalized model.
+
+## Admin UI
+
+The page uses a fixed viewport layout: title, filters, table headers, and the bottom `Gestionat` action remain visible while the table content scrolls.
+
+Teacher and absence-date filters run client-side. The date filter uses a custom Catalan calendar with Monday as the first weekday.
+
+Clicking a table row opens the complete parent record and its related `recovery` rows. Reads and writes resolve the parent by stable `form_data.row_id`; they must never treat `row_id` as a physical spreadsheet row number. The edit flow protects `row_id`, `created_at`, and `updated_at`, and replaces the selected parent's recovery rows under a script lock.

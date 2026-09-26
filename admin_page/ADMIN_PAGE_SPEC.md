@@ -29,9 +29,56 @@ The script must follow the shared database architecture exactly:
 
 Column B in registry sheet `tables` is always a spreadsheet ID, never a sheet name.
 
+## Access Control
+
+The admin endpoint is protected by role-based access control.
+
+Deployment remains domain-restricted:
+
+- `executeAs`: `USER_DEPLOYING`
+- `access`: `DOMAIN`
+
+This blocks non-domain users at the Apps Script deployment level, while the script performs its own allow-list check for users inside `@iernestlluch.cat`.
+
+The script property `access_granted` must contain a comma-separated list of allowed direct institutional emails and/or role names.
+
+Examples:
+
+- `mikellopez@iernestlluch.cat`
+- `Coord. 3ESO`
+- `Coord. 3ESO,COCOBE,mikellopez@iernestlluch.cat`
+
+Entries containing `@` are treated as direct allowed emails.
+
+Entries without `@` are treated as role/càrrec names and are resolved through `Càrrega lectiva`.
+
+Role resolution:
+
+1. Resolve logical table `Càrrega lectiva` through the shared `db` registry.
+2. Open physical sheet `carrecs`.
+3. Match `access_granted` role names against `carrecs` column A.
+4. Read assigned people from `carrecs` column D.
+5. Open physical sheet `professors`.
+6. Match assigned people against `professors` column Q.
+7. Read institutional email from `professors` column L.
+8. Allow access only when `Session.getActiveUser().getEmail()` matches one of the direct or resolved emails.
+
+Role and person matching is normalized for case and accents. Direct email comparison is lower-cased.
+
+If the active user cannot be identified, `access_granted` is missing, or the user is not allowed, `doGet()` returns an `Accés no autoritzat` page instead of the admin interface.
+
+Every browser-callable server method must call `assertUserAccess_()` before reading or writing data. Current protected methods:
+
+- `getAdminPageData()`
+- `getAdminRecord(rowId)`
+- `saveAdminRecord(payload)`
+- `markRowsManaged(rowIds)`
+
+The script also exposes `grantRequiredPermissions()` as a manual helper to trigger authorization prompts for the required access-control reads.
+
 ## Required Tables
 
-The current visible admin table actively reads only `Faltaré -> form_data` and `Dades de professors -> Llista`.
+The main admin table reads `Faltaré -> form_data` and `Dades de professors -> Llista`. The record-detail modal also reads and writes `Faltaré -> recovery`.
 
 The normalized `Faltaré` child sheets are part of the same logical data model and must be used by future admin views that need child-row detail:
 
@@ -71,7 +118,7 @@ When the endpoint opens:
 4. Client stores all returned parent rows in memory.
 5. Filtering and sorting happen in the browser without re-reading the database.
 
-For the current visible table, `admin_page` does not need to load `absences`, `recovery`, or `profes_guardia`. Any view that needs selected classes, recovery dates, or guard-duty assignments must read the normalized sheets directly instead of parsing JSON from `form_data`.
+The main table does not preload child sheets. When a row is opened, the server reads only the related `recovery` rows by stable `row_id`. The admin page does not parse legacy JSON fields.
 
 Teacher name resolution from `Dades de professors -> Llista`:
 
@@ -94,8 +141,8 @@ The admin table must show:
 | Select | Checkbox to select the row locally. |
 | `Data absència` | `absence_date` |
 | `Professor` | Resolve `teacher_code` through `Dades de professors -> Llista`; fallback to stored `absence_teacher_name`. |
+| `Motiu` | `motiu` (column N in the normalized schema). |
 | `Context` | `context` |
-| `Multiday` | `multi_day` |
 | `Recuperable?` | `Sí` when `motiu_route` is `J-b`; `No` when `motiu_route` is `J-a`. |
 | `Hores` | `hores` for `J-a`; `hores_a_recuperar` for `J-b`. |
 | `ATRI?` | `No` if `permis_llicencia_absencia` is `Absència ordinària`; `Sí` otherwise. |
@@ -104,6 +151,19 @@ The admin table must show:
 ## Filters
 
 Filters appear above the table.
+
+### Professor
+
+- Text input.
+- Case-insensitive and accent-insensitive partial match against the resolved teacher name.
+- Filtering is client-side and updates while typing.
+
+### Data
+
+- Custom Catalan calendar picker.
+- Displays dates as `dd/mm/yyyy`.
+- Week starts on Monday and weekday labels are Catalan (`Dl` through `Dg`).
+- Matches `form_data.absence_date` exactly after normalizing the stored date.
 
 ### Gestionades
 
@@ -143,8 +203,26 @@ Show a bottom action button:
 Behavior:
 
 - The button is disabled when no rows are checked.
-- When clicked, send the selected spreadsheet row numbers to the server.
+- When clicked, send the selected stable `row_id` values to the server.
+- Server resolves each physical spreadsheet row from `row_id` immediately before writing.
 - Server writes `TRUE` in the `managed` column for each selected row in `Faltaré -> form_data`.
 - The server must find the `managed` column by header name, not by hard-coded column number.
 - After success, the client updates the in-memory rows as managed.
 - Since `Gestionades` is unchecked by default, newly managed rows disappear from the default visible table.
+
+## Record Detail And Editing
+
+Every main-table row is clickable, except its selection checkbox and document link.
+
+Clicking a row opens a modal that:
+
+- Loads the parent from `Faltaré -> form_data` by stable `row_id`.
+- Shows every normalized `form_data` field.
+- Shows the related `Faltaré -> recovery` rows ordered by `item_index`.
+- Provides an `Edita` action.
+
+In edit mode, all business fields can be changed. `row_id`, `created_at`, and `updated_at` are protected system metadata. `updated_at` is refreshed automatically on save.
+
+Recovery rows can be added, edited, or removed. Dates are saved as `yyyy-mm-dd`, times as canonical `HH:mm`, and the server rejects incomplete or invalid recovery rows.
+
+Saving runs under a script lock. The server updates the parent row found by stable `row_id`, deletes that parent's existing `recovery` rows, and writes the edited recovery list with regenerated item indexes and child IDs.
