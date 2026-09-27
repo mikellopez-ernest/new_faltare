@@ -217,11 +217,30 @@ Every main-table row is clickable, except its selection checkbox and document li
 Clicking a row opens a modal that:
 
 - Loads the parent from `Faltaré -> form_data` by stable `row_id`.
-- Shows every normalized `form_data` field.
+- Shows only the operational `form_data` fields listed below.
 - Shows the related `Faltaré -> recovery` rows ordered by `item_index`.
 - Provides an `Edita` action.
 
-In edit mode, all business fields can be changed. `row_id`, `created_at`, and `updated_at` are protected system metadata. `updated_at` is refreshed automatically on save.
+The popup must not display these fields:
+
+- `row_id`
+- `adreca_electronica`
+- `absence_teacher_email`
+- `teacher_code`
+- `que_vols_fer`
+- `multi_day_student_work`
+- `motiu_route`
+- `document_file_id`
+- `document_file_name`
+- `confirmation_ok`
+- `status`
+- `managed`
+
+The popup displays `created_at`, `updated_at`, `absence_teacher_name`, `professor_acompanyant`, `absence_date`, `multi_day`, `reincorporation_date`, `motiu`, `context`, `hores`, `hores_a_recuperar`, `permis_llicencia_absencia`, and `document_file_url`.
+
+`motiu` is a select, not free text. Its options must match the complete `REASONS` catalogue in `attendance_form/Código.js`. The current saved value remains visible if a historical record contains a reason that is no longer in the catalogue. On save, the server validates the selected reason and derives the hidden `motiu_route` from the catalogue (`J-a` or `J-b`).
+
+In edit mode, all displayed business fields can be changed. `created_at` and `updated_at` are protected system metadata. `updated_at` is refreshed automatically on save. Hidden fields are preserved, except `motiu_route`, which is synchronized from the selected `motiu`.
 
 Recovery rows can be added, edited, or removed. Dates are saved as `yyyy-mm-dd`, times as canonical `HH:mm`, and the server rejects incomplete or invalid recovery rows.
 

@@ -115,3 +115,5 @@ The page uses a fixed viewport layout: title, filters, table headers, and the bo
 Teacher and absence-date filters run client-side. The date filter uses a custom Catalan calendar with Monday as the first weekday.
 
 Clicking a table row opens the complete parent record and its related `recovery` rows. Reads and writes resolve the parent by stable `form_data.row_id`; they must never treat `row_id` as a physical spreadsheet row number. The edit flow protects `row_id`, `created_at`, and `updated_at`, and replaces the selected parent's recovery rows under a script lock.
+
+The popup intentionally omits internal identifiers, email/code metadata, submission state, and managed fields. Its `Motiu` control is a select backed by the same 30-entry `REASONS` catalogue as `attendance_form/Código.js`; saving a reason also recalculates the hidden `motiu_route`.

@@ -479,35 +479,24 @@
 
   <script>
     const FORM_FIELDS = [
-      { key: 'row_id', label: 'ID del registre', protected: true },
       { key: 'created_at', label: 'Creat el', protected: true },
       { key: 'updated_at', label: 'Actualitzat el', protected: true },
-      { key: 'adreca_electronica', label: 'Adreça electrònica', type: 'email' },
       { key: 'absence_teacher_name', label: 'Professor/a absent' },
-      { key: 'absence_teacher_email', label: 'Correu del professor/a', type: 'email' },
-      { key: 'teacher_code', label: 'Codi del professor/a' },
-      { key: 'que_vols_fer', label: 'Acció sol·licitada', wide: true },
       { key: 'professor_acompanyant', label: 'Professor acompanyant', type: 'yesno' },
       { key: 'absence_date', label: 'Data d’absència', type: 'date' },
       { key: 'multi_day', label: 'Més d’un dia', type: 'yesno' },
       { key: 'reincorporation_date', label: 'Data de reincorporació', type: 'date' },
-      { key: 'multi_day_student_work', label: 'Feina per a l’alumnat', type: 'textarea', wide: true },
-      { key: 'motiu', label: 'Motiu', type: 'textarea', wide: true },
-      { key: 'motiu_route', label: 'Ruta del motiu', type: 'route' },
+      { key: 'motiu', label: 'Motiu', type: 'reason', wide: true },
       { key: 'context', label: 'Context', type: 'textarea', wide: true },
       { key: 'hores', label: 'Hores', type: 'number' },
       { key: 'hores_a_recuperar', label: 'Hores a recuperar', type: 'number' },
       { key: 'permis_llicencia_absencia', label: 'Permís, llicència o absència', wide: true },
-      { key: 'document_file_id', label: 'ID del document' },
       { key: 'document_file_url', label: 'URL del document', type: 'url', wide: true },
-      { key: 'document_file_name', label: 'Nom del document' },
-      { key: 'confirmation_ok', label: 'Confirmació', type: 'boolean' },
-      { key: 'status', label: 'Estat' },
-      { key: 'managed', label: 'Gestionat', type: 'boolean' },
     ];
 
     const state = {
       rows: [],
+      reasons: [],
       sortKey: '',
       sortDirection: 'asc',
       selectedRows: {},
@@ -597,6 +586,7 @@
       google.script.run
         .withSuccessHandler((data) => {
           state.rows = data.rows || [];
+          state.reasons = data.reasons || [];
           state.selectedRows = {};
           clearMessage();
           render();
@@ -851,7 +841,7 @@
 
       if (field.type === 'textarea') control = `<textarea data-form-field="${field.key}" ${disabled ? 'disabled' : ''}>${escapeHtml(value)}</textarea>`;
       else if (field.type === 'yesno') control = renderSelect(field.key, value, ['', 'Sí', 'No'], disabled);
-      else if (field.type === 'route') control = renderSelect(field.key, value, ['', 'J-a', 'J-b'], disabled);
+      else if (field.type === 'reason') control = renderReasonSelect(field.key, value, disabled);
       else if (field.type === 'boolean') control = `<input data-form-field="${field.key}" type="checkbox" ${isTruthy(value) ? 'checked' : ''} ${disabled ? 'disabled' : ''}>`;
       else {
         const inputValue = field.type === 'date' ? normalizeDateToIso(value) : value;
@@ -866,6 +856,16 @@
 
     function renderSelect(key, value, options, disabled) {
       return `<select data-form-field="${key}" ${disabled ? 'disabled' : ''}>${options.map((option) => `<option value="${escapeAttribute(option)}" ${option === value ? 'selected' : ''}>${escapeHtml(option || '—')}</option>`).join('')}</select>`;
+    }
+
+    function renderReasonSelect(key, value, disabled) {
+      const options = state.reasons.slice();
+
+      if (value && !options.includes(value)) {
+        options.unshift(value);
+      }
+
+      return `<select data-form-field="${key}" required ${disabled ? 'disabled' : ''}>${options.map((option) => `<option value="${escapeAttribute(option)}" ${option === value ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}</select>`;
     }
 
     function renderRecoveryRows(rows) {

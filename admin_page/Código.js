@@ -70,6 +70,39 @@ const REASON_ROUTES = {
   RECOVERY: 'J-b',
 };
 
+const REASONS = [
+  { value: 'Estic de baixa (cal adjuntar document baixa per justificació)', route: REASON_ROUTES.HOURS },
+  { value: 'Absència per motius de salut de màxim 15 hores (cal adjuntar declaració responsable)', route: REASON_ROUTES.HOURS },
+  { value: 'Absència per visita mèdica (cal adjuntar justificant visita)', route: REASON_ROUTES.HOURS },
+  { value: 'Absència per encàrrec de servei o formació de centre', route: REASON_ROUTES.HOURS },
+  { value: 'Absència per realització de prova mèdica invasiva (cal adjuntar justificant visita)', route: REASON_ROUTES.HOURS },
+  { value: 'Absència per menstruació o climateri (recuperable)', route: REASON_ROUTES.RECOVERY },
+  { value: "Absència per visita mèdica d'un familiar (Cal recuperar les hores)", route: REASON_ROUTES.RECOVERY },
+  { value: 'ATRI - Absència per reunió de tutoria dels fills (Cal omplir ATRI i recuperar les hores)', route: REASON_ROUTES.RECOVERY },
+  { value: 'ATRI - Llicència per assumptes propis no remunerats (Cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Llicència per estudis no retribuïts (Cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Permís de maternitat/paternitat (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: "ATRI - Permís per accident d'un familiar (cal omplir ATRI)", route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Permís per adopció internacional (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Permís per atendre fill discapacitat (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Permís per deure inexcusable (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Permís per deures de conciliació de la vida familiar i laboral (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Permís per dol gestacional (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: 'Permís per examen prenatal / preparació part / reproducció assistida (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Permís per exàmens finals en centres oficials (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: "ATRI - Permís per força major per motiu d'emergència ambientals (cal omplir ATRI)", route: REASON_ROUTES.HOURS },
+  { value: "ATRI - Permís per hospitalització d'un familiar (cal omplir ATRI)", route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Permís per lactància (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Permís per malaltia greu d\'un familiar (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Permís per matrimoni (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: "ATRI - Permís per matrimoni d'un fill o familiar de fins 2n grau de consanguinitat (cal omplir ATRI)", route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Permís per defunció d\'un familiar (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Permís per situació de violència de gènere (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Permís per tràmits adopció/acolliment (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: 'ATRI - Permís per trasllat de domilici (cal omplir ATRI)', route: REASON_ROUTES.HOURS },
+  { value: 'Absència no justificable aprovada per direcció (Cal recuperar les hores)', route: REASON_ROUTES.RECOVERY },
+];
+
 const MANAGED_COLUMN_NAME = 'managed';
 const WORKLOAD_PROFESSORS_SHEET_NAME = 'professors';
 const WORKLOAD_CARRECS_SHEET_NAME = 'carrecs';
@@ -108,6 +141,7 @@ function getAdminPageData() {
 
   return {
     rows: rows,
+    reasons: REASONS.map(function(reason) { return reason.value; }),
     counts: {
       total: rows.length,
       managed: rows.filter(function(row) { return row.managed; }).length,
@@ -140,6 +174,9 @@ function saveAdminRecord(payload) {
   try {
     validateRecoveryRows_(payload.recoveryRows);
 
+    const selectedReason = String(payload.formData.motiu || '').trim();
+    const selectedReasonRoute = getReasonRoute_(selectedReason);
+
     const tableRegistry = loadTableRegistry_();
     const formSheet = openFaltareSheet_(tableRegistry, FALTARE_SHEETS.FORM_DATA);
     const recoverySheet = openFaltareSheet_(tableRegistry, FALTARE_SHEETS.RECOVERY);
@@ -161,6 +198,12 @@ function saveAdminRecord(payload) {
 
       rowValues[columnIndex] = normalizeAdminFormValue_(column, payload.formData[column]);
     });
+
+    const reasonRouteIndex = headerMap[normalizeHeader_('motiu_route')];
+
+    if (reasonRouteIndex !== undefined) {
+      rowValues[reasonRouteIndex] = selectedReasonRoute;
+    }
 
     const updatedAtIndex = headerMap[normalizeHeader_('updated_at')];
 
@@ -689,6 +732,18 @@ function normalizeAdminFormValue_(column, value) {
   }
 
   return value === null || value === undefined ? '' : String(value).trim();
+}
+
+function getReasonRoute_(reason) {
+  const match = REASONS.filter(function(item) {
+    return item.value === reason;
+  })[0];
+
+  if (!match) {
+    throw new Error('El motiu seleccionat no és vàlid.');
+  }
+
+  return match.route;
 }
 
 function normalizeRecoveryTime_(value) {
