@@ -283,16 +283,23 @@ function submitAttendanceForm(payload) {
   ensureSheetHeaders_(recoverySheet, RECOVERY_HEADERS, 'Faltaré/recovery');
 
   const isUpdate = Boolean(payload.editRowId);
-  const rowNumber = isUpdate ? Number(payload.editRowId) : Math.max(formSheet.getLastRow() + 1, 2);
+  const editRowId = String(payload.editRowId || '').trim();
+  const existingRecord = isUpdate ? getFormRecordByRowId_(formSheet, editRowId) : null;
+  const physicalRowNumber = isUpdate ? existingRecord.physicalRowNumber : Math.max(formSheet.getLastRow() + 1, 2);
+  const recordId = isUpdate ? existingRecord.rowId : String(physicalRowNumber);
 
-  if (isUpdate && (!Number.isFinite(rowNumber) || rowNumber < 2)) {
+  if (isUpdate && !recordId) {
     throw new Error('El registre que es vol actualitzar no és vàlid.');
   }
 
-  const existingValues = isUpdate ? getFormRowObject_(formSheet, rowNumber) : {};
+  const existingValues = isUpdate ? existingRecord.rowObject : {};
+
+  if (isUpdate && normalizeKey_(existingValues.absence_teacher_email) !== normalizeKey_(payload.teacherEmail)) {
+    throw new Error('El registre que es vol actualitzar no correspon al professor o professora indicat.');
+  }
 
   const fileInfo = payload.documentFile
-    ? uploadDocument_(payload.documentFile, rowNumber)
+    ? uploadDocument_(payload.documentFile, recordId)
     : {
       id: existingValues.document_file_id || '',
       url: existingValues.document_file_url || '',
@@ -300,7 +307,7 @@ function submitAttendanceForm(payload) {
     };
 
   const valuesByHeader = {
-    row_id: rowNumber,
+    row_id: recordId,
     created_at: existingValues.created_at || new Date(),
     updated_at: new Date(),
     adreca_electronica: user.email,
@@ -331,9 +338,9 @@ function submitAttendanceForm(payload) {
     return valuesByHeader[header];
   });
 
-  formSheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
-  replaceAbsenceRows_(absencesSheet, rowNumber, payload.selectedScheduleItems || []);
-  replaceRecoveryRows_(recoverySheet, rowNumber, payload.recoveryItems || []);
+  formSheet.getRange(physicalRowNumber, 1, 1, row.length).setValues([row]);
+  replaceAbsenceRows_(absencesSheet, recordId, payload.selectedScheduleItems || []);
+  replaceRecoveryRows_(recoverySheet, recordId, payload.recoveryItems || []);
 
   const confirmationEmailTemplate = buildConfirmationEmailTemplate_(
     valuesByHeader,
@@ -346,7 +353,7 @@ function submitAttendanceForm(payload) {
 
   return {
     ok: true,
-    rowNumber: rowNumber,
+    rowNumber: recordId,
     documentFile: fileInfo,
     confirmationEmailTemplate: confirmationEmailTemplate,
     message: isUpdate ? 'El formulari s\'ha actualitzat correctament.' : 'El formulari s\'ha enviat correctament.',
@@ -480,12 +487,12 @@ function getSubmissionsForTeacher(teacherEmail) {
   });
 }
 
-function getSubmissionForEdit(rowId) {
+function getSubmissionForEdit(rowId, teacherEmail) {
   assertAllowedUserIfKnown_(getCurrentUser_().email);
 
-  const rowNumber = Number(rowId);
+  const cleanRowId = String(rowId || '').trim();
 
-  if (!rowNumber || rowNumber < 2) {
+  if (!cleanRowId) {
     throw new Error('El registre seleccionat no és vàlid.');
   }
 
@@ -496,23 +503,28 @@ function getSubmissionForEdit(rowId) {
   ensureFormDataHeaders_(formSheet);
   ensureSheetHeaders_(absencesSheet, ABSENCE_HEADERS, 'Faltaré/absences');
   ensureSheetHeaders_(recoverySheet, RECOVERY_HEADERS, 'Faltaré/recovery');
-  const rowObject = getFormRowObject_(formSheet, rowNumber);
+  const record = getFormRecordByRowId_(formSheet, cleanRowId);
+  const rowObject = record.rowObject;
+
+  if (teacherEmail && normalizeKey_(rowObject.absence_teacher_email) !== normalizeKey_(teacherEmail)) {
+    throw new Error('El registre seleccionat no correspon al professor o professora indicat.');
+  }
 
   return {
-    editRowId: rowNumber,
+    editRowId: record.rowId,
     teacherEmail: rowObject.absence_teacher_email,
     action: ACTIONS.CREATE_GUARD_NOTICE,
     professorAcompanyant: rowObject.professor_acompanyant,
     absenceDate: rowObject.absence_date,
     multiDay: rowObject.multi_day,
-    selectedScheduleItems: loadAbsenceItemsForRow_(absencesSheet, rowNumber),
+    selectedScheduleItems: loadAbsenceItemsForRow_(absencesSheet, record.rowId),
     reincorporationDate: rowObject.reincorporation_date,
     multiDayStudentWork: rowObject.multi_day_student_work,
     motiu: rowObject.motiu,
     context: rowObject.context,
     hores: rowObject.hores,
     horesARecuperar: rowObject.hores_a_recuperar,
-    recoveryItems: loadRecoveryItemsForRow_(recoverySheet, rowNumber),
+    recoveryItems: loadRecoveryItemsForRow_(recoverySheet, record.rowId),
     permisLlicenciaAbsencia: rowObject.permis_llicencia_absencia,
     confirmationOk: parseBoolean_(rowObject.confirmation_ok),
   };
@@ -848,7 +860,7 @@ function replaceRecoveryRows_(sheet, rowId, items) {
       rowId + '-' + (index + 1),
       index + 1,
       item.date || '',
-      item.time || '',
+      normalizeRecoveryTime_(item.time),
       now,
       now,
     ];
@@ -899,9 +911,27 @@ function loadRecoveryItemsForRow_(sheet, rowId) {
   return readChildObjectsByRowId_(sheet, RECOVERY_HEADERS, rowId).map(function(row) {
     return {
       date: row.date,
-      time: row.time,
+      time: normalizeRecoveryTime_(row.time),
     };
   });
+}
+
+function normalizeRecoveryTime_(value) {
+  const rawValue = String(value || '').trim();
+  const match = rawValue.match(/^(\d{1,2}):(\d{2})$/);
+
+  if (!match) {
+    return rawValue;
+  }
+
+  const hour = Number(match[1]);
+  const minutes = match[2];
+
+  if (!Number.isFinite(hour)) {
+    return rawValue;
+  }
+
+  return (hour < 10 ? '0' : '') + hour + ':' + minutes;
 }
 
 function readChildObjectsByRowId_(sheet, headers, rowId) {
@@ -1031,6 +1061,33 @@ function getFormRowObject_(sheet, rowNumber) {
   return rowToObject_(sheet.getRange(rowNumber, 1, 1, lastColumn).getDisplayValues()[0]);
 }
 
+function getFormRecordByRowId_(sheet, rowId) {
+  const cleanRowId = String(rowId || '').trim();
+  const lastRow = sheet.getLastRow();
+  const lastColumn = FORM_DATA_HEADERS.length;
+
+  if (!cleanRowId || lastRow < 2) {
+    throw new Error('No s\'ha trobat el registre seleccionat.');
+  }
+
+  const values = sheet.getRange(2, 1, lastRow - 1, lastColumn).getDisplayValues();
+
+  for (let index = 0; index < values.length; index += 1) {
+    const rowObject = rowToObject_(values[index]);
+    const currentRowId = String(rowObject.row_id || '').trim();
+
+    if (currentRowId === cleanRowId) {
+      return {
+        rowId: currentRowId,
+        physicalRowNumber: index + 2,
+        rowObject: rowObject,
+      };
+    }
+  }
+
+  throw new Error('No s\'ha trobat el registre seleccionat.');
+}
+
 function rowToObject_(row) {
   return FORM_DATA_HEADERS.reduce(function(object, header, index) {
     object[header] = row[index] || '';
@@ -1109,8 +1166,8 @@ function validateSubmission_(payload) {
       required_(item.date, 'Cal indicar la data de recuperació ' + (index + 1) + '.');
       required_(item.time, 'Cal indicar l\'hora de recuperació ' + (index + 1) + '.');
 
-      if (item.date < payload.absenceDate) {
-        throw new Error('La data de recuperació ' + (index + 1) + ' no pot ser anterior a la data de l\'absència.');
+      if (isRecoveryDateInsideAbsencePeriod_(item.date, payload)) {
+        throw new Error('La data de recuperació ' + (index + 1) + ' no pot coincidir amb el període de l\'absència.');
       }
     });
   }
@@ -1120,6 +1177,15 @@ function validateSubmission_(payload) {
   if (!payload.confirmationOk) {
     throw new Error('Cal confirmar la tramitació abans d\'enviar el formulari.');
   }
+}
+
+function isRecoveryDateInsideAbsencePeriod_(recoveryDate, payload) {
+  const startDate = String(payload.absenceDate || '').trim();
+  const endDate = payload.multiDay === 'Sí' && payload.reincorporationDate
+    ? String(payload.reincorporationDate || '').trim()
+    : startDate;
+
+  return Boolean(recoveryDate && startDate && endDate && recoveryDate >= startDate && recoveryDate <= endDate);
 }
 
 function uploadDocument_(documentFile, rowNumber) {

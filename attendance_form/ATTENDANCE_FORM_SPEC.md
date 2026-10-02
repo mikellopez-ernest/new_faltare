@@ -210,6 +210,13 @@ The modal table shows:
 
 The context cell must be visually cropped to two lines. Clicking the context loads the full row into the second page of the form so the user can edit values and save the same row again.
 
+Security and reference rule:
+
+- The modal must pass the stable `form_data.row_id`, not a physical spreadsheet row index.
+- The server must load and update existing submissions by finding the row whose `row_id` column matches that stable ID.
+- The server must not assume `row_id` equals the current physical spreadsheet row number, because `form_data` can be sorted or reordered.
+- When loading or saving an edit, the server must verify that the selected row's `absence_teacher_email` matches the teacher email being edited. If it does not match, the request must be rejected.
+
 ## Branch: Avisar Que Genero Guàrdia
 
 ### Section Title
@@ -508,7 +515,10 @@ Dynamic recovery controls:
 - Each recovery control has:
   - Date picker titled `Data`, with weeks starting on Monday.
   - Combo box titled `Hora`.
-- Recovery dates cannot be before Part E, `Data prevista de l'absència`. The form must show an error and block submission if a recovery date is earlier.
+- Recovery times must be displayed and saved in canonical `HH:mm` format, for example `08:00`, even if older stored rows contain `8:00`.
+- Recovery dates may be before the absence starts.
+- Recovery dates must not fall inside the absence period itself. For a one-day absence, the blocked period is only Part E, `Data prevista de l'absència`. For a multi-day absence, the blocked period starts at Part E and ends at `Data de reincorporació`, inclusive.
+- The form must show an error and block submission if a recovery date falls inside that absence period.
 
 Recovery hour combo values:
 

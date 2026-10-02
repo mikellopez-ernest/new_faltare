@@ -1020,7 +1020,7 @@
         .withFailureHandler((error) => {
           showMessage(el.updateModalMessage, error.message || String(error), 'error');
         })
-        .getSubmissionForEdit(rowId);
+        .getSubmissionForEdit(rowId, el.teacherEmail.value);
     }
 
     function populateFormForEdit(data) {
@@ -1058,7 +1058,7 @@
           }
 
           if (timeInput) {
-            timeInput.value = item.time || '';
+            timeInput.value = normalizeRecoveryTime(item.time || '');
           }
         });
       }
@@ -1445,10 +1445,13 @@
 
     function validateRecoveryDates(recoveryItems) {
       const absenceDate = el.absenceDate.value;
+      const absenceEndDate = getRadioValue('multiDay') === 'Sí' && el.reincorporationDate.value
+        ? el.reincorporationDate.value
+        : absenceDate;
 
       recoveryItems.forEach((item, index) => {
-        if (item.date && absenceDate && item.date < absenceDate) {
-          throw new Error(`La data de recuperació ${index + 1} no pot ser anterior a la data de l'absència.`);
+        if (item.date && absenceDate && absenceEndDate && item.date >= absenceDate && item.date <= absenceEndDate) {
+          throw new Error(`La data de recuperació ${index + 1} no pot coincidir amb el període de l'absència.`);
         }
       });
     }
@@ -1480,6 +1483,23 @@
         date: item.querySelector('.recovery-date').value,
         time: item.querySelector('.recovery-time').value,
       }));
+    }
+
+    function normalizeRecoveryTime(value) {
+      const rawValue = String(value || '').trim();
+      const match = rawValue.match(/^(\d{1,2}):(\d{2})$/);
+
+      if (!match) {
+        return rawValue;
+      }
+
+      const hour = Number(match[1]);
+
+      if (!Number.isFinite(hour)) {
+        return rawValue;
+      }
+
+      return `${hour < 10 ? '0' : ''}${hour}:${match[2]}`;
     }
 
     function readSelectedFile() {
