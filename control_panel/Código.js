@@ -479,7 +479,11 @@ function buildAbsencesByTime_(sheetData, formDataByRowId, teachersByCode, select
   rows.forEach(function(row) {
     const parent = formDataByRowId[normalizeKey_(row.row_id)];
 
-    if (!parent || normalizeDate_(parent.absence_date) !== selectedDate) {
+    if (
+      !parent ||
+      !isAbsenceActiveOnDate_(parent, selectedDate) ||
+      isMultiDayAbsence_(parent)
+    ) {
       return;
     }
 
@@ -537,7 +541,7 @@ function addTimetableFallbackAbsences_(byTime, rowIdsWithChildren, formDataValue
   formRows.forEach(function(parent) {
     const rowId = normalizeKey_(parent.row_id);
 
-    if (!rowId || rowIdsWithChildren[rowId] || normalizeDate_(parent.absence_date) !== selectedDate) {
+    if (!rowId || rowIdsWithChildren[rowId] || !isAbsenceActiveOnDate_(parent, selectedDate)) {
       return;
     }
 
@@ -580,7 +584,7 @@ function addTimetableFallbackAbsences_(byTime, rowIdsWithChildren, formDataValue
         subjectCode: item.subjectCode || '',
         group: item.groupsText || '',
         classroom: item.classrooms.join(', '),
-        studentWork: '',
+        studentWork: isMultiDayAbsence_(parent) ? String(parent.multi_day_student_work || '').trim() : '',
         noCoverRequired: false,
         source: 'timetable-fallback',
       });
@@ -1033,6 +1037,32 @@ function parseBoolean_(value) {
   }
 
   return String(value || '').trim().toLowerCase() === 'true';
+}
+
+function isMultiDayAbsence_(parent) {
+  const value = normalizeKey_(parent && parent.multi_day);
+  return value === 'SÍ' || value === 'SI' || value === 'TRUE';
+}
+
+function isAbsenceActiveOnDate_(parent, selectedDate) {
+  const targetDate = normalizeDate_(selectedDate);
+  const startDate = normalizeDate_(parent && parent.absence_date);
+
+  if (!targetDate || !startDate) {
+    return false;
+  }
+
+  if (!isMultiDayAbsence_(parent)) {
+    return targetDate === startDate;
+  }
+
+  const endDate = normalizeDate_(parent && parent.reincorporation_date);
+
+  if (!endDate) {
+    return targetDate === startDate;
+  }
+
+  return targetDate >= startDate && targetDate < endDate;
 }
 
 function ensureSheetHeaders_(sheet, expectedHeaders) {

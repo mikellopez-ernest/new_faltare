@@ -106,6 +106,15 @@ For a selected date, the endpoint loads:
 
 Primary absence rows come from `Faltaré -> absences`.
 
+Date coverage rules:
+
+- A one-day parent matches only `form_data.absence_date`.
+- A multi-day parent (`multi_day = Sí`) matches `absence_date` and every later date strictly before `reincorporation_date`.
+- `reincorporation_date` is the first day back at work and is therefore excluded from the absence interval.
+- Weekends within that interval remain covered dates, but normally produce no visible rows because `schedule_cache` contains weekday timetable rows only.
+- Multi-day parents are rendered from the selected date's `Horaris -> schedule_cache` timetable instead of repeating any day-one `absences` child rows.
+- Multi-day fallback rows use `form_data.multi_day_student_work` as their task text.
+
 The endpoint reads `schedule_cache` as-is. It does not rebuild or refresh the cache during page load, popup load, or save.
 
 ## Blocking Loading State
@@ -143,7 +152,8 @@ The function must not modify database rows.
 
 Fallback rule:
 
-- If a `form_data` parent row matches the selected date but has no child rows in `Faltaré -> absences`, the endpoint computes visible rows from `Horaris -> schedule_cache`.
+- If a one-day `form_data` parent row matches the selected date but has no child rows in `Faltaré -> absences`, the endpoint computes visible rows from `Horaris -> schedule_cache`.
+- Every matching multi-day parent uses this timetable fallback for each covered date, even if legacy child rows exist.
 - The fallback uses the parent `teacher_code`, the selected absence date weekday, `schedule_cache.effective_teacher_code`, `schedule_cache.subject_full_name`, and the schedule slot mapping.
 - This keeps existing or partially migrated parent rows visible without changing the normalized storage rule.
 - For substitute submissions, `form_data.teacher_code` stores the substitute's `REDUIT`; fallback works as long as the cache has been rebuilt with that substitute as `effective_teacher_code`.
@@ -191,7 +201,7 @@ For every time slot:
 
 If a time slot has no recovery candidates and no absences, it still shows the green time row.
 
-Absence rows are read from `Faltaré -> absences` when child rows exist. `Horaris -> schedule_cache` is only used as a fallback for matching parent rows that have no `absences` children.
+One-day absence rows are read from `Faltaré -> absences` when child rows exist. `Horaris -> schedule_cache` is used for matching one-day parents without children and for every matching multi-day parent. Multi-day coverage includes `absence_date` and excludes `reincorporation_date`.
 
 If an absence row represents a `GUARDIA` slot, it must be displayed in the main daily absence table so staff can see that the teacher is absent. It must not be displayed in the management popup as a row that needs coverage. The absent teacher is still unavailable for substitutions at that slot and must be excluded from the guard-teacher dropdown candidate pool.
 
