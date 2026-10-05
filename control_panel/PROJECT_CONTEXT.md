@@ -63,6 +63,7 @@ The page is titled `Panell de guàrdies` and shows a selected-day guard-duty con
 - Active `Dades de professors -> leave_absence` rows are consumed through `Horaris -> schedule_cache`; the control panel does not recalculate leave substitution for normal schedule reads.
 - The control panel trusts the existing cache and must not call `rebuildScheduleCache()` or trigger the cache rebuild endpoint.
 - Clicking `Gestionar` opens a popup for the selected date/time, proposes guard teachers, allows editing through the header gear, and saves assignments to `Faltaré -> profes_guardia`.
+- Saved popup assignments can be reopened and changed at any time. In edit mode, `Desa` is blocked only by duplicate real-teacher assignments; empty rows are permitted, and historical saved teachers remain visible even if the live candidate pool has changed.
 - A green check next to `Gestionar` means that date/time has saved rows in `profes_guardia`.
 - A green check in the popup `Desat` column means that row assignment has been saved.
 - After saving the popup, it closes and reloads the selected day so the main table immediately reflects the saved state.

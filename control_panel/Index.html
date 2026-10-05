@@ -620,17 +620,9 @@
 
         const rowIndex = Number(select.dataset.rowIndex);
         const selectedCode = select.value;
-        const selectedCandidate = selectedCode === NO_COVER_CODE
-          ? { code: NO_COVER_CODE, name: NO_COVER_LABEL }
-          : managementData.candidates.filter(function(candidate) {
-            return candidate.code === selectedCode;
-          })[0];
         const currentRow = managementData.rows[rowIndex];
-        const previousCandidate = currentRow.guardTeacherCode === NO_COVER_CODE
-          ? { code: NO_COVER_CODE, name: NO_COVER_LABEL }
-          : managementData.candidates.filter(function(candidate) {
-            return candidate.code === currentRow.guardTeacherCode;
-          })[0];
+        const selectedCandidate = getManagementCandidate_(selectedCode, currentRow);
+        const previousCandidate = getManagementCandidate_(currentRow.guardTeacherCode, currentRow);
 
         if (selectedCode && selectedCode !== NO_COVER_CODE) {
           managementData.rows.forEach(function(row, index) {
@@ -929,10 +921,20 @@
       function renderGuardSelect(row, rowIndex) {
         const noCoverSelected = row.guardTeacherCode === NO_COVER_CODE ? ' selected' : '';
         const emptySelected = !row.guardTeacherCode ? ' selected' : '';
+        const currentCandidateExists = managementData.candidates.some(function(candidate) {
+          return candidate.code === row.guardTeacherCode;
+        });
+        const savedCurrentOption = row.guardTeacherCode &&
+          row.guardTeacherCode !== NO_COVER_CODE &&
+          !currentCandidateExists
+          ? ['<option value="' + escapeHtml(row.guardTeacherCode) + '" selected>' +
+            escapeHtml((row.guardTeacherName || row.guardTeacherCode) + ' (assignació actual)') +
+            '</option>']
+          : [];
         const options = [
           '<option value="' + NO_COVER_CODE + '"' + noCoverSelected + '>' + NO_COVER_LABEL + '</option>',
           '<option value=""' + emptySelected + '>Sense assignar</option>',
-        ].concat(managementData.candidates.map(function(candidate) {
+        ].concat(savedCurrentOption).concat(managementData.candidates.map(function(candidate) {
           const selected = candidate.code === row.guardTeacherCode ? ' selected' : '';
           const label = (candidate.preferredRecovery ? 'Guàrdia preferent: ' : '') +
             candidate.name + ' (' + Number(candidate.count || 0) + ')';
@@ -940,6 +942,38 @@
         }));
 
         return '<select class="guard-select" data-row-index="' + rowIndex + '">' + options.join('') + '</select>';
+      }
+
+      function getManagementCandidate_(code, fallbackRow) {
+        if (!code) {
+          return undefined;
+        }
+
+        if (code === NO_COVER_CODE) {
+          return { code: NO_COVER_CODE, name: NO_COVER_LABEL };
+        }
+
+        const candidate = managementData.candidates.filter(function(item) {
+          return item.code === code;
+        })[0];
+
+        if (candidate) {
+          return candidate;
+        }
+
+        if (!fallbackRow || fallbackRow.guardTeacherCode !== code) {
+          return undefined;
+        }
+
+        return {
+          code: code,
+          name: fallbackRow.guardTeacherName || code,
+          sourceTeacherCode: fallbackRow.guardSourceTeacherCode || code,
+          sourceTeacherName: fallbackRow.guardSourceTeacherName || fallbackRow.guardTeacherName || code,
+          effectiveTeacherCode: fallbackRow.guardEffectiveTeacherCode || code,
+          effectiveTeacherName: fallbackRow.guardEffectiveTeacherName || fallbackRow.guardTeacherName || code,
+          teacherWasSubstituted: Boolean(fallbackRow.guardTeacherWasSubstituted),
+        };
       }
 
       function renderSavedCheck(isSaved) {
@@ -983,7 +1017,7 @@
       }
 
       function updateManagementSaveState() {
-        if (!managementData || managementSaving) {
+        if (!managementData || !managementEditMode || managementSaving) {
           saveManagementButton.disabled = true;
           return;
         }
@@ -997,47 +1031,25 @@
         }
 
         const usedCodes = {};
-        let duplicate = false;
 
-        managementData.rows.forEach(function(row) {
+        return managementData.rows.every(function(row) {
           const code = row.guardTeacherCode;
 
-          if (!code) {
-            return;
-          }
-
-          if (code === NO_COVER_CODE) {
-            return;
+          if (!code || code === NO_COVER_CODE) {
+            return true;
           }
 
           if (usedCodes[code]) {
-            duplicate = true;
+            return false;
           }
 
           usedCodes[code] = true;
-        });
-
-        if (duplicate) {
-          return false;
-        }
-
-        const rowsNeedingTeacher = managementData.rows.filter(function(row) {
-          return row.guardTeacherCode !== NO_COVER_CODE;
-        });
-
-        if (managementData.candidates.length >= rowsNeedingTeacher.length) {
-          return rowsNeedingTeacher.every(function(row) {
-            return Boolean(row.guardTeacherCode);
-          });
-        }
-
-        return managementData.candidates.every(function(candidate) {
-          return Boolean(usedCodes[candidate.code]);
+          return true;
         });
       }
 
       function saveManagement() {
-        if (!managementData || !isManagementValid() || managementSaving) {
+        if (!managementData || !managementEditMode || !isManagementValid() || managementSaving) {
           return;
         }
 

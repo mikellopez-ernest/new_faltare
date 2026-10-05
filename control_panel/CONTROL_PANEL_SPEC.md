@@ -347,14 +347,12 @@ Rules:
 - A teacher can only appear in one popup row at a time.
 - If a user selects a teacher who is already assigned to another row, both row assignments are swapped so no teacher is duplicated.
 - A row with an empty `GUÀRDIA` value is visually marked as incomplete.
-- The popup cannot be saved while any selected/proposed teacher has no row or any required row has no teacher, except when there are not enough eligible guard teachers.
 - Rows with `No cal cobrir` do not require a teacher and do not consume an eligible guard teacher.
+- Existing assignments may be reopened, edited, and saved at any time; there is no time or saved-state lock.
+- `Desa` is enabled in edit mode whenever no real teacher is duplicated. Empty rows are allowed.
+- A saved teacher who is no longer in the current eligible candidate pool remains visible as the current assignment and can be preserved or replaced.
 
-When there are not enough eligible guard teachers:
-
-- It is valid for some rows to remain empty.
-- It is not valid for an eligible guard teacher to be unassigned while an empty row still exists.
-- The save rule is therefore: every eligible guard teacher must be placed somewhere, and no teacher may be duplicated.
+When there are not enough eligible guard teachers, any number of rows may remain empty. The server persists the popup's current nonempty assignments.
 
 Saving replaces all existing `profes_guardia` rows for the selected date and time with the popup's current nonempty assignments. After a successful save, the popup closes and the selected day reloads so the main table immediately shows the saved-check state.
 
