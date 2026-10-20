@@ -421,7 +421,7 @@ function buildConfirmationEmailTags_(submission, fileInfo, isUpdate, selectedSch
     emailRow_('Professor acompanyant?', submission.professor_acompanyant) +
     emailRow_('Motiu', submission.motiu) +
     emailRow_('Context', submission.context) +
-    (route === REASON_ROUTES.HOURS ? emailRow_('Hores', submission.hores) : '') +
+    (submission.hores ? emailRow_('Hores', submission.hores) : '') +
     (route === REASON_ROUTES.RECOVERY ? emailRow_('Hores a recuperar', submission.hores_a_recuperar) : '') +
     emailRow_('Permís, llicència o absència ordinària', submission.permis_llicencia_absencia);
 
@@ -441,7 +441,7 @@ function buildConfirmationEmailTags_(submission, fileInfo, isUpdate, selectedSch
     ACCOMPANYING_TEACHER: submission.professor_acompanyant,
     REASON: submission.motiu,
     CONTEXT: submission.context,
-    HOURS_TEXT: route === REASON_ROUTES.HOURS ? 'Hores: ' + submission.hores : '',
+    HOURS_TEXT: submission.hores ? 'Hores: ' + submission.hores : '',
     RECOVERY_HOURS_TEXT: route === REASON_ROUTES.RECOVERY ? 'Hores a recuperar: ' + submission.hores_a_recuperar : '',
     PERMIT_LICENSE_ABSENCE: submission.permis_llicencia_absencia,
     SCHEDULE_TEXT: scheduleText,
@@ -1208,16 +1208,10 @@ function validateSubmission_(payload) {
   const route = getReasonRoute_(payload.motiu);
 
   if (payload.multiDay === 'No' && singleDayScheduleCount !== null) {
-    const scheduleCount = String(singleDayScheduleCount);
-
-    if (route === REASON_ROUTES.HOURS) {
-      payload.hores = scheduleCount;
-    } else if (route === REASON_ROUTES.RECOVERY) {
-      payload.horesARecuperar = scheduleCount;
-    }
+    payload.hores = String(singleDayScheduleCount);
   }
 
-  if (route === REASON_ROUTES.HOURS) {
+  if (payload.multiDay === 'No' || route === REASON_ROUTES.HOURS) {
     required_(payload.hores, 'Cal indicar les hores.');
   }
 

@@ -475,7 +475,7 @@ Help text:
 
 ### Part J-a - Hores
 
-Used when Part H routes to `J-a`.
+Calculated for every one-day absence, regardless of whether Part H routes to `J-a` or `J-b`.
 
 This field is hidden from the user.
 
@@ -487,13 +487,9 @@ Help text:
 
 `Nombre d'hores què es faltarà: s'inclouen lectives i no lectives. No cal notificar les hores del dimarts per la tarda en cas de no poder anar a les reunions.`
 
-The value is still auto-filled and submitted to the database.
+The value is auto-filled and submitted to the database. For `J-a`, continue directly to Part K. For `J-b`, also show Part J-b so the user can enter the separate recovery-hour count.
 
-After Part J-a, go directly to Part K.
-
-Do not show Part J-b.
-
-Default value: auto-fill with the number of visible grouped schedule rows for the selected teacher/date and full-day/time-range selection.
+Default value: auto-fill with the number of all visible schedule rows for the selected teacher/date and full-day/time-range selection, including faded rows that are not written to `absences`.
 
 ### Part J-b - Hores A Recuperar
 
@@ -510,6 +506,8 @@ Text:
 Control:
 
 - Show a box that only accepts numbers.
+- Keep this value independent of `Hores`. Do not auto-fill or overwrite it from the timetable-row count.
+- The user-entered value determines the number of required recovery date/time controls.
 
 Dynamic recovery controls:
 

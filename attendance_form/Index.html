@@ -1203,7 +1203,7 @@
 
       google.script.run
         .withSuccessHandler((result) => {
-          state.scheduleCount = (result.items || []).filter(shouldCheckScheduleByDefault).length;
+          state.scheduleCount = (result.items || []).length;
           applyAutoHourDefaults();
         })
         .withFailureHandler(() => {
@@ -1389,16 +1389,7 @@
 
     function applyAutoHourDefaults() {
       const count = Number(state.scheduleCount || 0);
-      const route = getSelectedReasonRoute();
-
-      if (route === 'J-a') {
-        el.hores.value = count > 0 ? count : '';
-      }
-
-      if (route === 'J-b') {
-        el.horesARecuperar.value = count > 0 ? count : '';
-        renderRecoveryControls();
-      }
+      el.hores.value = count > 0 ? count : '';
     }
 
     function shouldCheckScheduleByDefault(item) {
@@ -1577,7 +1568,7 @@
         selectedScheduleItems: collectSelectedScheduleItems(),
         motiu: el.motiu.value,
         context: document.getElementById('context').value,
-        hores: route === 'J-a' ? el.hores.value : '',
+        hores: el.hores.value,
         horesARecuperar: route === 'J-b' ? el.horesARecuperar.value : '',
         recoveryItems,
         permisLlicenciaAbsencia: document.getElementById('permisLlicenciaAbsencia').value,

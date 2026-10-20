@@ -48,8 +48,8 @@ One row per submitted or updated absence request.
 | N | `motiu` | Selected absence reason. |
 | O | `motiu_route` | `J-a` for ordinary hours, `J-b` for recovery hours. |
 | P | `context` | Confidential context text. |
-| Q | `hores` | Hidden hours value for `J-a`, auto-filled from all grouped schedule rows in the full-day/time-range selection, including faded rows not written to `absences`. |
-| R | `hores_a_recuperar` | Recovery hour count for `J-b`, calculated with the same rule as `hores`. |
+| Q | `hores` | Hidden timetable-row count for every one-day absence, regardless of reason. It includes all rows in the full-day/time-range selection, including faded rows not written to `absences`. |
+| R | `hores_a_recuperar` | User-entered recovery-hour count for `J-b`. This value controls how many recovery date/time rows must be provided and is independent of `hores`. |
 | S | `permis_llicencia_absencia` | Selected permit/license/ordinary absence value. For `J-b`, the field is hidden and automatically saved as `Absència ordinària`. |
 | T | `document_file_id` | Uploaded Drive file ID, if any. Preserved on edit when no new file is uploaded. |
 | U | `document_file_url` | Uploaded Drive file URL, if any. Preserved on edit when no new file is uploaded. |
