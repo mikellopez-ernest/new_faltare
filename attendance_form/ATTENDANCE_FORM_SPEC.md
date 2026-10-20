@@ -273,12 +273,20 @@ Options:
 
 Branching:
 
-- If `No`, show the one-day teacher schedule table in Part G.
+- If `No`, show `Absència de tota la jornada?` and the one-day teacher schedule table in Part G.
 - If `Sí`, show the reincorporation date picker in Part G.
 
 ### Part G - One-Day Absence Schedule Table
 
 Shown only when Part F is `No`.
+
+Before the table, show the mandatory question `Absència de tota la jornada?` with `Sí` as the default.
+
+- If `Sí`, show every grouped schedule row for the selected teacher and date.
+- If `No`, show mandatory `Des de` and `Torno a les` selects. Both use the schedule-slot time catalogue (`08:00` through `20:30`).
+- `Des de` is inclusive and `Torno a les` is exclusive. For example, `09:00` to `11:30` includes rows starting at `09:00` and `10:00`, but not `11:30`.
+- `Torno a les` must be later than `Des de`.
+- Older stored rows without this field load as full-day absences.
 
 The form must show the selected teacher's schedule for the selected absence date.
 
@@ -359,13 +367,10 @@ Schedule table columns:
 
 | Column | Control / Data |
 | --- | --- |
-| `1` | Checkbox, default `false` |
-| `2` | Time, derived from `SCHEDULE SLOT` |
-| `3` | Subject name, read from `schedule_cache.subject_full_name` |
-| `4` | `No cal cobrir` toggle button |
-| `5` | Text box with placeholder `Feina per l'alumnat`, only when the grouped row has an associated group |
-
-The checkbox column header must also show a checkbox that selects or unselects all classes shown for the day.
+| `1` | Time, derived from `SCHEDULE SLOT` |
+| `2` | Subject name, read from `schedule_cache.subject_full_name` |
+| `3` | `No cal cobrir` toggle button |
+| `4` | Text box with placeholder `Feina per l'alumnat`, only when the grouped row has an associated group |
 
 Rows with the same time and same subject are the same class block and must be grouped into one visible row. The row must show the subject name and, underneath it, the groups as a comma-separated list.
 
@@ -379,27 +384,21 @@ Example:
 If a grouped subject row does not have an associated group in the source timetable data, do not show the `Feina per l'alumnat` text box for that row.
 Leave that cell blank.
 
-Default checked rows:
-
-- Rows with at least one group are checked by default.
-- Rows without a group are checked by default only when the subject name or subject code is `GUARDIA`.
-- Other rows without a group are shown but unchecked by default.
-
 For example, for `Mikel López (LOPINF)` on Thursday, the `DIGITALITZACIÓ` row grouping groups `4A`, `4B`, `4C`, `4D`, and `4E` must show the text box.
 
-Checking a row means the user wants to generate guard duty for that class/hour. Unchecked rows are ignored for guard-duty generation.
+There are no row-selection checkboxes. Every row visible under the selected full-day or time-range mode is part of the absence.
 
-The `No cal cobrir` toggle marks a checked absence row as not requiring a substitute teacher. The UI shows it as a compact icon button and strikes through the visible row when active.
+The `No cal cobrir` toggle marks an absence row as not requiring a substitute teacher. The UI shows it as a compact icon button and strikes through the visible row when active.
 
-`No cal cobrir` does not uncheck the row and does not remove it from the absence-hour count. It is stored in `Faltaré -> absences.no_cover_required` and is consumed by `control_panel`.
+`No cal cobrir` does not remove the row from the absence-hour count. It is stored in `Faltaré -> absences.no_cover_required` and is consumed by `control_panel`.
 
-`Hores` and `Hores a recuperar` must count only checked schedule rows.
+`Hores` and `Hores a recuperar` equal the number of visible grouped schedule rows. Full-day mode counts every row for that day; partial-day mode counts rows at or after `Des de` and before `Torno a les`.
 
 If the selected date is a weekend or there are no schedule rows for the selected teacher on that day, the form must show an error and block new submissions for the one-day branch.
 
-At least one schedule row must be checked for a one-day `Avisar que genero guàrdia` submission.
+At least one schedule row must fall inside the selected one-day interval for an `Avisar que genero guàrdia` submission.
 
-When editing an existing row, saved child rows in `Faltaré -> absences` are the source of truth for previously selected schedule rows. The form must render those stored subjects immediately, use them as a fallback if the live timetable lookup fails or returns no rows, and allow saving the edited row as long as at least one stored/checked subject is present.
+When editing an existing row, saved child rows in `Faltaré -> absences` remain the fallback if the live timetable lookup fails or returns no rows. The full-day/time-range controls determine which loaded rows are displayed and rewritten.
 
 ### Part G - Multi-Day Absence Reincorporation Date
 
@@ -490,8 +489,7 @@ After Part J-a, go directly to Part K.
 
 Do not show Part J-b.
 
-Default value: auto-fill with the number of grouped schedule rows for the selected teacher/date.
-The number must track checked schedule rows only.
+Default value: auto-fill with the number of visible grouped schedule rows for the selected teacher/date and full-day/time-range selection.
 
 ### Part J-b - Hores A Recuperar
 
@@ -537,8 +535,7 @@ Recovery hour combo values:
 
 After Part J-b, continue to Part K.
 
-Default value: auto-fill with the number of grouped schedule rows for the selected teacher/date.
-The number must track checked schedule rows only.
+Default value: auto-fill with the number of visible grouped schedule rows for the selected teacher/date and full-day/time-range selection.
 
 When Part H routes to `J-b`, Part K is hidden from the user and automatically set to `Absència ordinària`.
 
@@ -615,7 +612,7 @@ Submitted form rows must be stored in:
 
 - Logical table: `Faltaré`
 - Parent sheet: `form_data`
-- Child sheet for selected schedule/class rows: `absences`
+- Child sheet for included schedule/class rows: `absences`
 - Child sheet for recovery date/time rows: `recovery`
 
 This table must also be resolved through the registry spreadsheet. Do not assume it lives in the same spreadsheet as any other logical table.
@@ -652,7 +649,7 @@ The intro/description appears only on the first screen. It must not be shown aft
 
 After a successful submission, redirect the web page to `https://agora.xtec.cat/sesernestlluch-cunit/`.
 
-When editing an existing row, stored child rows from `absences` and `recovery` must be loaded and rendered in the form. `absences` rows must be used as the selected schedule fallback when the live schedule list has not been freshly regenerated yet.
+When editing an existing row, stored child rows from `absences` and `recovery` must be loaded and rendered in the form. `absences` rows must be used as the schedule fallback when the live schedule list has not been freshly regenerated yet.
 
 ## Deferred Work
 

@@ -79,6 +79,13 @@
       margin: 26px 0;
     }
 
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
     .label {
       display: block;
       margin-bottom: 8px;
@@ -228,9 +235,15 @@
       opacity: 0.68;
     }
 
+    .schedule-table td:first-child,
+    .schedule-table th:first-child {
+      width: auto;
+      text-align: left;
+    }
+
+    .schedule-row.no-cover td:nth-child(1),
     .schedule-row.no-cover td:nth-child(2),
-    .schedule-row.no-cover td:nth-child(3),
-    .schedule-row.no-cover td:nth-child(5) {
+    .schedule-row.no-cover td:nth-child(4) {
       text-decoration: line-through;
     }
 
@@ -431,8 +444,14 @@
         grid-template-columns: 1fr;
       }
 
-      th:nth-child(3),
-      td:nth-child(3) {
+      .field-grid {
+        grid-template-columns: 1fr;
+      }
+
+      table:not(.schedule-table) th:nth-child(3),
+      table:not(.schedule-table) td:nth-child(3),
+      .schedule-table th:nth-child(2),
+      .schedule-table td:nth-child(2) {
         min-width: 180px;
       }
     }
@@ -510,6 +529,29 @@
           <div class="radio-group">
             <label class="radio-option"><input type="radio" name="multiDay" value="Sí"> <span>Sí</span></label>
             <label class="radio-option"><input type="radio" name="multiDay" value="No" checked> <span>No</span></label>
+          </div>
+        </div>
+
+        <div id="singleDayOptions" class="field hidden">
+          <span class="label">Absència de tota la jornada? <span class="required">*</span></span>
+          <div class="radio-group">
+            <label class="radio-option"><input type="radio" name="fullDay" value="Sí" checked> <span>Sí</span></label>
+            <label class="radio-option"><input type="radio" name="fullDay" value="No"> <span>No</span></label>
+          </div>
+
+          <div id="partialDayRange" class="field-grid hidden">
+            <label>
+              <span class="label">Des de <span class="required">*</span></span>
+              <select id="absenceStartTime" name="absenceStartTime">
+                <option value="">Selecciona</option>
+              </select>
+            </label>
+            <label>
+              <span class="label">Torno a les <span class="required">*</span></span>
+              <select id="returnTime" name="returnTime">
+                <option value="">Selecciona</option>
+              </select>
+            </label>
           </div>
         </div>
 
@@ -638,6 +680,10 @@
       nextButton: document.getElementById('nextButton'),
       backButton: document.getElementById('backButton'),
       absenceDate: document.getElementById('absenceDate'),
+      singleDayOptions: document.getElementById('singleDayOptions'),
+      partialDayRange: document.getElementById('partialDayRange'),
+      absenceStartTime: document.getElementById('absenceStartTime'),
+      returnTime: document.getElementById('returnTime'),
       singleDaySchedule: document.getElementById('singleDaySchedule'),
       scheduleMessage: document.getElementById('scheduleMessage'),
       scheduleTableWrap: document.getElementById('scheduleTableWrap'),
@@ -689,6 +735,7 @@
           el.absenceDate.value = bootstrap.today;
           renderTeachers(bootstrap.teachers || []);
           renderReasons(bootstrap.reasons || []);
+          renderAbsenceTimeOptions();
           el.teacherEmail.disabled = false;
           el.nextButton.disabled = false;
         })
@@ -726,6 +773,18 @@
       });
     }
 
+    function renderAbsenceTimeOptions() {
+      [el.absenceStartTime, el.returnTime].forEach((select) => {
+        clearSelect(select, 'Selecciona');
+        HOUR_OPTIONS.forEach((time) => {
+          const option = document.createElement('option');
+          option.value = time;
+          option.textContent = time;
+          select.appendChild(option);
+        });
+      });
+    }
+
     function clearSelect(select, placeholder) {
       select.innerHTML = '';
       setSelectPlaceholder(select, placeholder);
@@ -744,12 +803,18 @@
       el.backButton.addEventListener('click', handleBack);
       el.teacherEmail.addEventListener('change', refreshScheduleIfNeeded);
       el.absenceDate.addEventListener('change', refreshScheduleIfNeeded);
+      el.absenceStartTime.addEventListener('change', handleScheduleRangeChange);
+      el.returnTime.addEventListener('change', handleScheduleRangeChange);
       el.motiu.addEventListener('change', updateReasonRoute);
       el.horesARecuperar.addEventListener('input', renderRecoveryControls);
       el.closeUpdateModal.addEventListener('click', closeUpdateModal);
       el.form.addEventListener('change', (event) => {
         if (event.target.name === 'multiDay') {
           updateMultiDayMode();
+        }
+
+        if (event.target.name === 'fullDay') {
+          updateFullDayMode();
         }
       });
       el.form.addEventListener('submit', handleSubmit);
@@ -933,17 +998,39 @@
 
     function updateMultiDayMode() {
       const multiDay = getRadioValue('multiDay');
+      el.singleDayOptions.classList.toggle('hidden', multiDay !== 'No');
       el.singleDaySchedule.classList.toggle('hidden', multiDay !== 'No');
       el.multiDayReincorporation.classList.toggle('hidden', multiDay !== 'Sí');
 
       if (multiDay === 'No') {
+        updateFullDayMode();
         refreshScheduleIfNeeded();
       } else {
+        el.partialDayRange.classList.add('hidden');
         state.scheduleItems = [];
         el.scheduleTableWrap.innerHTML = '';
         clearMessage(el.scheduleMessage);
         refreshScheduleCountOnly();
       }
+    }
+
+    function updateFullDayMode() {
+      const partialDay = getRadioValue('multiDay') === 'No' && getRadioValue('fullDay') === 'No';
+      el.partialDayRange.classList.toggle('hidden', !partialDay);
+
+      if (state.scheduleItems.length) {
+        captureScheduleInputs();
+        renderCurrentSchedule();
+      }
+    }
+
+    function handleScheduleRangeChange() {
+      if (!state.scheduleItems.length) {
+        return;
+      }
+
+      captureScheduleInputs();
+      renderCurrentSchedule();
     }
 
     function openUpdateModal() {
@@ -1033,6 +1120,9 @@
       setRadioValue('professorAcompanyant', data.professorAcompanyant || 'No');
       el.absenceDate.value = data.absenceDate || el.absenceDate.value;
       setRadioValue('multiDay', data.multiDay || 'No');
+      setRadioValue('fullDay', data.fullDay || 'Sí');
+      el.absenceStartTime.value = data.absenceStartTime || '';
+      el.returnTime.value = data.returnTime || '';
       el.reincorporationDate.value = data.reincorporationDate || '';
       el.multiDayStudentWork.value = data.multiDayStudentWork || '';
       el.motiu.value = data.motiu || '';
@@ -1131,9 +1221,31 @@
       }
 
       clearMessage(el.scheduleMessage);
-      const rows = state.scheduleItems.map((item, index) => `
+      renderCurrentSchedule();
+    }
+
+    function renderCurrentSchedule() {
+      const selection = getIncludedScheduleItems();
+
+      if (selection.error) {
+        el.scheduleTableWrap.innerHTML = '';
+        state.scheduleCount = 0;
+        applyAutoHourDefaults();
+        showMessage(el.scheduleMessage, selection.error, 'error');
+        return;
+      }
+
+      if (!selection.items.length) {
+        el.scheduleTableWrap.innerHTML = '';
+        state.scheduleCount = 0;
+        applyAutoHourDefaults();
+        showMessage(el.scheduleMessage, 'No hi ha cap fila d\'horari dins l\'interval seleccionat.', 'error');
+        return;
+      }
+
+      clearMessage(el.scheduleMessage);
+      const rows = selection.items.map(({ item, index }) => `
         <tr class="schedule-row ${item.noCoverRequired ? 'no-cover' : ''}">
-          <td><input type="checkbox" class="schedule-check" data-index="${index}" ${isScheduleItemChecked(item) ? 'checked' : ''}></td>
           <td>${escapeHtml(item.time)}</td>
           <td>
             <strong>${escapeHtml(item.subjectName)}</strong><br>
@@ -1143,16 +1255,15 @@
             <button type="button" class="secondary no-cover-toggle ${item.noCoverRequired ? 'active' : ''}" data-index="${index}" title="No cal cobrir" aria-label="No cal cobrir">⊘</button>
           </td>
           <td>${item.hasGroup
-            ? `<textarea class="work-input" data-index="${index}" placeholder="Feina per l'alumnat"></textarea>`
+            ? `<textarea class="work-input" data-index="${index}" placeholder="Feina per l'alumnat">${escapeHtml(item.studentWork || '')}</textarea>`
             : ''}</td>
         </tr>
       `).join('');
 
       el.scheduleTableWrap.innerHTML = `
-        <table>
+        <table class="schedule-table">
           <thead>
             <tr>
-              <th><input type="checkbox" id="scheduleSelectAll" title="Selecciona totes les classes del dia"></th>
               <th>Hora</th>
               <th>Assignatura</th>
               <th>No cal cobrir</th>
@@ -1162,23 +1273,6 @@
           <tbody>${rows}</tbody>
         </table>
       `;
-
-      document.getElementById('scheduleSelectAll').addEventListener('change', (event) => {
-        document.querySelectorAll('.schedule-check').forEach((checkbox) => {
-          checkbox.checked = event.target.checked;
-        });
-        updateCheckedScheduleCount();
-      });
-
-      document.getElementById('scheduleSelectAll').checked = Array.from(document.querySelectorAll('.schedule-check')).every((checkbox) => checkbox.checked);
-
-      document.querySelectorAll('.schedule-check').forEach((checkbox) => {
-        checkbox.addEventListener('change', () => {
-          const checks = Array.from(document.querySelectorAll('.schedule-check'));
-          document.getElementById('scheduleSelectAll').checked = checks.every((item) => item.checked);
-          updateCheckedScheduleCount();
-        });
-      });
 
       document.querySelectorAll('.no-cover-toggle').forEach((button) => {
         button.addEventListener('click', () => {
@@ -1190,8 +1284,56 @@
         });
       });
 
+      document.querySelectorAll('.work-input').forEach((input) => {
+        input.addEventListener('input', () => {
+          state.scheduleItems[Number(input.dataset.index)].studentWork = input.value;
+        });
+      });
+
       applyPendingStudentWork();
-      updateCheckedScheduleCount();
+      state.scheduleCount = selection.items.length;
+      applyAutoHourDefaults();
+    }
+
+    function getIncludedScheduleItems() {
+      if (getRadioValue('multiDay') !== 'No') {
+        return { items: [], error: '' };
+      }
+
+      const indexedItems = state.scheduleItems.map((item, index) => ({ item, index }));
+
+      if (getRadioValue('fullDay') !== 'No') {
+        return { items: indexedItems, error: '' };
+      }
+
+      const startIndex = HOUR_OPTIONS.indexOf(el.absenceStartTime.value);
+      const returnIndex = HOUR_OPTIONS.indexOf(el.returnTime.value);
+
+      if (startIndex === -1 || returnIndex === -1) {
+        return { items: [], error: 'Cal indicar les hores de Des de i Torno a les.' };
+      }
+
+      if (returnIndex <= startIndex) {
+        return { items: [], error: 'L\'hora de retorn ha de ser posterior a l\'hora d\'inici.' };
+      }
+
+      return {
+        items: indexedItems.filter(({ item }) => {
+          const itemIndex = HOUR_OPTIONS.indexOf(String(item.time || '').trim());
+          return itemIndex >= startIndex && itemIndex < returnIndex;
+        }),
+        error: '',
+      };
+    }
+
+    function captureScheduleInputs() {
+      document.querySelectorAll('.work-input').forEach((input) => {
+        const item = state.scheduleItems[Number(input.dataset.index)];
+
+        if (item) {
+          item.studentWork = input.value;
+        }
+      });
     }
 
     function renderStoredScheduleIfNeeded(message) {
@@ -1247,26 +1389,6 @@
         el.horesARecuperar.value = count > 0 ? count : '';
         renderRecoveryControls();
       }
-    }
-
-    function isScheduleItemChecked(item) {
-      if (item.savedSelected) {
-        return true;
-      }
-
-      if (!state.pendingSelectedScheduleItems) {
-        return shouldCheckScheduleByDefault(item);
-      }
-
-      return state.pendingSelectedScheduleItems.some((savedItem) => {
-        const savedIds = getScheduleRowIds(savedItem);
-        return (item.rowIds || []).some((rowId) => savedIds.includes(String(rowId)));
-      });
-    }
-
-    function updateCheckedScheduleCount() {
-      state.scheduleCount = document.querySelectorAll('.schedule-check:checked').length;
-      applyAutoHourDefaults();
     }
 
     function shouldCheckScheduleByDefault(item) {
@@ -1337,8 +1459,12 @@
 
         const input = document.querySelector(`.work-input[data-index="${index}"]`);
 
+        if (!Object.prototype.hasOwnProperty.call(state.scheduleItems[index], 'studentWork')) {
+          state.scheduleItems[index].studentWork = savedItem.studentWork || '';
+        }
+
         if (input) {
-          input.value = savedItem.studentWork || '';
+          input.value = state.scheduleItems[index].studentWork || '';
         }
 
         if (savedItem.noCoverRequired) {
@@ -1429,6 +1555,13 @@
         professorAcompanyant: getRadioValue('professorAcompanyant'),
         absenceDate: el.absenceDate.value,
         multiDay: getRadioValue('multiDay'),
+        fullDay: getRadioValue('multiDay') === 'No' ? getRadioValue('fullDay') : '',
+        absenceStartTime: getRadioValue('multiDay') === 'No' && getRadioValue('fullDay') === 'No'
+          ? el.absenceStartTime.value
+          : '',
+        returnTime: getRadioValue('multiDay') === 'No' && getRadioValue('fullDay') === 'No'
+          ? el.returnTime.value
+          : '',
         reincorporationDate: document.getElementById('reincorporationDate').value,
         multiDayStudentWork: el.multiDayStudentWork.value,
         selectedScheduleItems: collectSelectedScheduleItems(),
@@ -1457,25 +1590,18 @@
     }
 
     function collectSelectedScheduleItems() {
-      const selectedItems = Array.from(document.querySelectorAll('.schedule-check'))
-        .filter((checkbox) => checkbox.checked)
-        .map((checkbox) => {
-          const index = Number(checkbox.dataset.index);
-          const item = state.scheduleItems[index];
-          const workInput = document.querySelector(`.work-input[data-index="${index}"]`);
+      captureScheduleInputs();
+      const selection = getIncludedScheduleItems();
 
-          return {
-            ...item,
-            studentWork: workInput ? workInput.value : '',
-            noCoverRequired: Boolean(item.noCoverRequired),
-          };
-        });
-
-      if (!selectedItems.length && state.pendingSelectedScheduleItems && state.pendingSelectedScheduleItems.length) {
-        return state.pendingSelectedScheduleItems;
+      if (selection.error) {
+        throw new Error(selection.error);
       }
 
-      return selectedItems;
+      return selection.items.map(({ item }) => ({
+        ...item,
+        studentWork: item.studentWork || '',
+        noCoverRequired: Boolean(item.noCoverRequired),
+      }));
     }
 
     function collectRecoveryItems() {

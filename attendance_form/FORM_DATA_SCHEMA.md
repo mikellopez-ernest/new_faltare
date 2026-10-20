@@ -48,8 +48,8 @@ One row per submitted or updated absence request.
 | N | `motiu` | Selected absence reason. |
 | O | `motiu_route` | `J-a` for ordinary hours, `J-b` for recovery hours. |
 | P | `context` | Confidential context text. |
-| Q | `hores` | Hidden hours value for `J-a`, auto-filled from checked grouped schedule rows by default and still submitted. |
-| R | `hores_a_recuperar` | Recovery hour count for `J-b`, auto-filled from checked grouped schedule rows by default. |
+| Q | `hores` | Hidden hours value for `J-a`, auto-filled from the grouped schedule rows included by the full-day/time-range selection. |
+| R | `hores_a_recuperar` | Recovery hour count for `J-b`, auto-filled from the grouped schedule rows included by the full-day/time-range selection. |
 | S | `permis_llicencia_absencia` | Selected permit/license/ordinary absence value. For `J-b`, the field is hidden and automatically saved as `Absència ordinària`. |
 | T | `document_file_id` | Uploaded Drive file ID, if any. Preserved on edit when no new file is uploaded. |
 | U | `document_file_url` | Uploaded Drive file URL, if any. Preserved on edit when no new file is uploaded. |
@@ -57,10 +57,13 @@ One row per submitted or updated absence request.
 | W | `confirmation_ok` | `TRUE` when the mandatory confirmation is checked. |
 | X | `status` | Initial value `submitted`; changed to `updated` when edited. |
 | Y | `managed` | `TRUE` when the admin page marks the row as managed; empty/FALSE otherwise. |
+| Z | `full_day` | `Sí` or `No` for one-day absences; empty for multi-day absences. Older blank one-day rows are treated as `Sí`. |
+| AA | `absence_start_time` | Inclusive `Des de` boundary for partial-day absences. |
+| AB | `return_time` | Exclusive `Torno a les` boundary for partial-day absences. |
 
 ## `absences`
 
-One row per selected schedule/class item.
+One row per schedule/class item included by the full-day or partial-day interval.
 
 Rows are linked to `form_data` with `row_id`.
 
@@ -131,14 +134,14 @@ Corridor pseudo-ids:
 When creating a new absence:
 
 1. Write the parent row to `form_data`.
-2. Use its `row_id` to write selected schedule rows to `absences`.
+2. Use its `row_id` to write the schedule rows included by the full-day/time-range controls to `absences`.
 3. Use its `row_id` to write recovery rows to `recovery`.
 
 When updating an existing absence:
 
 1. Update the parent row in `form_data`.
 2. Delete or clear existing `absences` child rows for that `row_id`.
-3. Rewrite the current selected schedule rows in `absences`.
+3. Rewrite the currently included schedule rows in `absences`.
 4. Delete or clear existing `recovery` child rows for that `row_id`.
 5. Rewrite the current recovery rows in `recovery`.
 

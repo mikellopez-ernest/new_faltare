@@ -95,6 +95,9 @@ const FORM_DATA_HEADERS = [
   'confirmation_ok',
   'status',
   'managed',
+  'full_day',
+  'absence_start_time',
+  'return_time',
 ];
 
 const LEGACY_FORM_DATA_HEADERS_TO_DELETE = [
@@ -318,6 +321,9 @@ function submitAttendanceForm(payload) {
     professor_acompanyant: payload.professorAcompanyant,
     absence_date: payload.absenceDate,
     multi_day: payload.multiDay,
+    full_day: payload.multiDay === 'No' ? payload.fullDay : '',
+    absence_start_time: payload.multiDay === 'No' && payload.fullDay === 'No' ? payload.absenceStartTime : '',
+    return_time: payload.multiDay === 'No' && payload.fullDay === 'No' ? payload.returnTime : '',
     reincorporation_date: payload.reincorporationDate || '',
     multi_day_student_work: payload.multiDayStudentWork || '',
     motiu: payload.motiu,
@@ -398,6 +404,10 @@ function buildConfirmationEmailTags_(submission, fileInfo, isUpdate, selectedSch
     }).join('\n')
     : 'No correspon.';
   const documentText = fileInfo && fileInfo.url ? fileInfo.url : 'No s\'ha adjuntat cap document.';
+  const fullDayText = submission.multi_day === 'No' ? (submission.full_day || 'Sí') : '';
+  const absenceTimeRangeText = fullDayText === 'No'
+    ? submission.absence_start_time + ' - ' + submission.return_time
+    : '';
   const summaryRowsHtml =
     emailRow_('Número de registre', submission.row_id) +
     emailRow_('Data de registre', formatDisplayDateTime_(submission.updated_at)) +
@@ -405,6 +415,8 @@ function buildConfirmationEmailTags_(submission, fileInfo, isUpdate, selectedSch
     emailRow_('Absència de', submission.absence_teacher_name) +
     emailRow_('Data prevista de l\'absència', formatDisplayDate_(submission.absence_date)) +
     emailRow_('Absència de més d\'un dia?', submission.multi_day) +
+    (fullDayText ? emailRow_('Absència de tota la jornada?', fullDayText) : '') +
+    (absenceTimeRangeText ? emailRow_('Interval de l\'absència', absenceTimeRangeText) : '') +
     (submission.reincorporation_date ? emailRow_('Data de reincorporació', formatDisplayDate_(submission.reincorporation_date)) : '') +
     emailRow_('Professor acompanyant?', submission.professor_acompanyant) +
     emailRow_('Motiu', submission.motiu) +
@@ -423,6 +435,8 @@ function buildConfirmationEmailTags_(submission, fileInfo, isUpdate, selectedSch
     ABSENCE_TEACHER_NAME: submission.absence_teacher_name,
     ABSENCE_DATE: formatDisplayDate_(submission.absence_date),
     MULTI_DAY: submission.multi_day,
+    FULL_DAY_TEXT: fullDayText ? 'Absència de tota la jornada?: ' + fullDayText : '',
+    ABSENCE_TIME_RANGE_TEXT: absenceTimeRangeText ? 'Interval de l\'absència: ' + absenceTimeRangeText : '',
     REINCORPORATION_TEXT: submission.reincorporation_date ? 'Data de reincorporació: ' + formatDisplayDate_(submission.reincorporation_date) : '',
     ACCOMPANYING_TEACHER: submission.professor_acompanyant,
     REASON: submission.motiu,
@@ -517,6 +531,9 @@ function getSubmissionForEdit(rowId, teacherEmail) {
     professorAcompanyant: rowObject.professor_acompanyant,
     absenceDate: rowObject.absence_date,
     multiDay: rowObject.multi_day,
+    fullDay: rowObject.multi_day === 'No' ? (rowObject.full_day || 'Sí') : '',
+    absenceStartTime: rowObject.absence_start_time,
+    returnTime: rowObject.return_time,
     selectedScheduleItems: loadAbsenceItemsForRow_(absencesSheet, record.rowId),
     reincorporationDate: rowObject.reincorporation_date,
     multiDayStudentWork: rowObject.multi_day_student_work,
@@ -1007,16 +1024,29 @@ function migrateLegacyFormDataHeaders_(sheet) {
 }
 
 function appendMissingFormDataHeaders_(sheet) {
-  const lastColumn = Math.max(sheet.getLastColumn(), 1);
-  const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0].map(function(value) {
-    return String(value || '').trim();
-  });
+  FORM_DATA_HEADERS.forEach(function(header, index) {
+    const lastColumn = Math.max(sheet.getLastColumn(), 1);
+    const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0].map(function(value) {
+      return String(value || '').trim();
+    });
 
-  FORM_DATA_HEADERS.forEach(function(header) {
-    if (headers.indexOf(header) === -1) {
-      sheet.getRange(1, sheet.getLastColumn() + 1).setValue(header);
-      headers.push(header);
+    if (headers[index] === header) {
+      return;
     }
+
+    if (headers.indexOf(header) !== -1) {
+      return;
+    }
+
+    const columnNumber = index + 1;
+
+    if (columnNumber <= sheet.getLastColumn()) {
+      sheet.insertColumnBefore(columnNumber);
+    } else {
+      sheet.insertColumnAfter(sheet.getLastColumn());
+    }
+
+    sheet.getRange(1, columnNumber).setValue(header);
   });
 }
 
@@ -1126,8 +1156,18 @@ function validateSubmission_(payload) {
   }
 
   if (payload.multiDay === 'No') {
+    required_(payload.fullDay, 'Cal indicar si l\'absència és de tota la jornada.');
+
+    if (payload.fullDay !== 'Sí' && payload.fullDay !== 'No') {
+      throw new Error('El valor d\'absència de tota la jornada no és vàlid.');
+    }
+
+    if (payload.fullDay === 'No') {
+      validatePartialDayRange_(payload.absenceStartTime, payload.returnTime);
+    }
+
     if (!Array.isArray(payload.selectedScheduleItems) || !payload.selectedScheduleItems.length) {
-      throw new Error('Cal seleccionar com a mínim una classe per generar guàrdia.');
+      throw new Error('No hi ha cap fila d\'horari dins l\'interval seleccionat.');
     }
 
     const schedule = getScheduleForTeacher({
@@ -1138,12 +1178,39 @@ function validateSubmission_(payload) {
     if (!schedule.items.length && !payload.editRowId) {
       throw new Error(schedule.message || 'No hi ha horari per aquesta data.');
     }
+
+    if (schedule.items.length) {
+      const expectedItems = filterScheduleItemsForAbsence_(
+        schedule.items,
+        payload.fullDay,
+        payload.absenceStartTime,
+        payload.returnTime
+      );
+
+      if (!expectedItems.length) {
+        throw new Error('No hi ha cap fila d\'horari dins l\'interval seleccionat.');
+      }
+
+      if (!hasSameScheduleItems_(payload.selectedScheduleItems, expectedItems)) {
+        throw new Error('Les files de l\'horari no coincideixen amb l\'interval seleccionat. Torna a carregar el formulari.');
+      }
+    }
   }
 
   required_(payload.motiu, 'Cal indicar el motiu.');
   required_(payload.context, 'Cal indicar el context.');
 
   const route = getReasonRoute_(payload.motiu);
+
+  if (payload.multiDay === 'No') {
+    const scheduleCount = String(payload.selectedScheduleItems.length);
+
+    if (route === REASON_ROUTES.HOURS) {
+      payload.hores = scheduleCount;
+    } else if (route === REASON_ROUTES.RECOVERY) {
+      payload.horesARecuperar = scheduleCount;
+    }
+  }
 
   if (route === REASON_ROUTES.HOURS) {
     required_(payload.hores, 'Cal indicar les hores.');
@@ -1177,6 +1244,65 @@ function validateSubmission_(payload) {
   if (!payload.confirmationOk) {
     throw new Error('Cal confirmar la tramitació abans d\'enviar el formulari.');
   }
+}
+
+function validatePartialDayRange_(startTime, returnTime) {
+  required_(startTime, 'Cal indicar l\'hora de Des de.');
+  required_(returnTime, 'Cal indicar l\'hora de Torno a les.');
+
+  const scheduleTimes = Object.keys(SCHEDULE_SLOT_TIMES).map(function(slot) {
+    return SCHEDULE_SLOT_TIMES[slot];
+  });
+  const startIndex = scheduleTimes.indexOf(String(startTime || '').trim());
+  const returnIndex = scheduleTimes.indexOf(String(returnTime || '').trim());
+
+  if (startIndex === -1 || returnIndex === -1) {
+    throw new Error('L\'interval de l\'absència conté una hora no vàlida.');
+  }
+
+  if (returnIndex <= startIndex) {
+    throw new Error('L\'hora de retorn ha de ser posterior a l\'hora d\'inici.');
+  }
+}
+
+function filterScheduleItemsForAbsence_(items, fullDay, startTime, returnTime) {
+  if (fullDay !== 'No') {
+    return items.slice();
+  }
+
+  validatePartialDayRange_(startTime, returnTime);
+
+  const scheduleTimes = Object.keys(SCHEDULE_SLOT_TIMES).map(function(slot) {
+    return SCHEDULE_SLOT_TIMES[slot];
+  });
+  const startIndex = scheduleTimes.indexOf(String(startTime || '').trim());
+  const returnIndex = scheduleTimes.indexOf(String(returnTime || '').trim());
+
+  return items.filter(function(item) {
+    const itemIndex = scheduleTimes.indexOf(String(item.time || '').trim());
+    return itemIndex >= startIndex && itemIndex < returnIndex;
+  });
+}
+
+function hasSameScheduleItems_(submittedItems, expectedItems) {
+  if (submittedItems.length !== expectedItems.length) {
+    return false;
+  }
+
+  const submittedKeys = submittedItems.map(scheduleItemKey_).sort();
+  const expectedKeys = expectedItems.map(scheduleItemKey_).sort();
+
+  return submittedKeys.every(function(key, index) {
+    return key && key === expectedKeys[index];
+  });
+}
+
+function scheduleItemKey_(item) {
+  const rowIds = Array.isArray(item.rowIds)
+    ? item.rowIds
+    : csvToArray_(item.rowIds || item.rowId);
+
+  return rowIds.map(String).sort().join(',');
 }
 
 function isRecoveryDateInsideAbsencePeriod_(recoveryDate, payload) {
