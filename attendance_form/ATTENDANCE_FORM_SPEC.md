@@ -282,8 +282,8 @@ Shown only when Part F is `No`.
 
 Before the table, show the mandatory question `Absència de tota la jornada?` with `Sí` as the default.
 
-- If `Sí`, show every grouped schedule row for the selected teacher and date.
-- If `No`, show mandatory `Des de` and `Torno a les` selects. Both use the schedule-slot time catalogue (`08:00` through `20:30`).
+- If `Sí`, every grouped schedule row for the selected teacher and date is active.
+- If `No`, show mandatory `Des de` and `Torno a les` selects. Both use the schedule-slot time catalogue (`08:00` through `20:30`). All timetable rows remain visible, but rows outside the selected interval are disabled and visually faded.
 - `Des de` is inclusive and `Torno a les` is exclusive. For example, `09:00` to `11:30` includes rows starting at `09:00` and `10:00`, but not `11:30`.
 - `Torno a les` must be later than `Des de`.
 - Older stored rows without this field load as full-day absences.
@@ -386,13 +386,13 @@ Leave that cell blank.
 
 For example, for `Mikel López (LOPINF)` on Thursday, the `DIGITALITZACIÓ` row grouping groups `4A`, `4B`, `4C`, `4D`, and `4E` must show the text box.
 
-There are no row-selection checkboxes. Every row visible under the selected full-day or time-range mode is part of the absence.
+There are no row-selection checkboxes. Every active row is part of the absence. Disabled rows remain visible for context, cannot change `No cal cobrir` or student work, do not count toward hours, and are not written to `Faltaré -> absences`.
 
 The `No cal cobrir` toggle marks an absence row as not requiring a substitute teacher. The UI shows it as a compact icon button and strikes through the visible row when active.
 
 `No cal cobrir` does not remove the row from the absence-hour count. It is stored in `Faltaré -> absences.no_cover_required` and is consumed by `control_panel`.
 
-`Hores` and `Hores a recuperar` equal the number of visible grouped schedule rows. Full-day mode counts every row for that day; partial-day mode counts rows at or after `Des de` and before `Torno a les`.
+`Hores` and `Hores a recuperar` equal the number of active grouped schedule rows. Full-day mode counts every row for that day; partial-day mode counts rows at or after `Des de` and before `Torno a les`.
 
 If the selected date is a weekend or there are no schedule rows for the selected teacher on that day, the form must show an error and block new submissions for the one-day branch.
 
@@ -489,7 +489,7 @@ After Part J-a, go directly to Part K.
 
 Do not show Part J-b.
 
-Default value: auto-fill with the number of visible grouped schedule rows for the selected teacher/date and full-day/time-range selection.
+Default value: auto-fill with the number of active grouped schedule rows for the selected teacher/date and full-day/time-range selection.
 
 ### Part J-b - Hores A Recuperar
 
@@ -535,7 +535,7 @@ Recovery hour combo values:
 
 After Part J-b, continue to Part K.
 
-Default value: auto-fill with the number of visible grouped schedule rows for the selected teacher/date and full-day/time-range selection.
+Default value: auto-fill with the number of active grouped schedule rows for the selected teacher/date and full-day/time-range selection.
 
 When Part H routes to `J-b`, Part K is hidden from the user and automatically set to `Absència ordinària`.
 
