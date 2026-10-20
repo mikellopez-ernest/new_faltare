@@ -1291,8 +1291,8 @@ function filterScheduleItemsForAbsence_(items, fullDay, startTime, returnTime) {
 
 function shouldCreateAbsenceRegistryItem_(item) {
   return Boolean(item.hasGroup) ||
-    normalizeKey_(item.subjectName).indexOf('guardia') === 0 ||
-    normalizeKey_(item.subjectCode).indexOf('guardia') === 0;
+    normalizeKey_(item.subjectName) === 'guardia' ||
+    normalizeKey_(item.subjectCode) === 'guardia';
 }
 
 function hasSameScheduleItems_(submittedItems, expectedItems) {

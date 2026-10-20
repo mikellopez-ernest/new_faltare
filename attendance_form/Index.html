@@ -1406,7 +1406,7 @@
     }
 
     function isGuardiaSubject(item) {
-      return normalizeText(item.subjectName).startsWith('guardia') || normalizeText(item.subjectCode).startsWith('guardia');
+      return normalizeText(item.subjectName) === 'guardia' || normalizeText(item.subjectCode) === 'guardia';
     }
 
     function normalizeText(value) {

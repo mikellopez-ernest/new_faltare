@@ -37,7 +37,7 @@ This script must not call `rebuildScheduleCache()` or trigger the cache rebuild 
 - `absences`: included schedule/class child rows linked by `row_id`.
 - `recovery`: recovery date/time child rows linked by `row_id`.
 
-For one-day absences, `form_data.full_day` controls schedule inclusion. Full-day submissions show every grouped schedule row; partial-day submissions use inclusive `absence_start_time` and exclusive `return_time`. The schedule table has no selection checkboxes. Every visible row counts toward automatic hours, but only rows with student groups and rows whose subject name or code starts with `GUARDIA` are written to `absences`. Other group-less rows remain visible in faded colours with disabled controls. Older one-day rows without `full_day` are treated as full-day.
+For one-day absences, `form_data.full_day` controls schedule inclusion. Full-day submissions show every grouped schedule row; partial-day submissions use inclusive `absence_start_time` and exclusive `return_time`. The schedule table has no selection checkboxes. Every visible row counts toward automatic hours, but only rows with student groups and rows whose subject name or code is exactly `GUARDIA` are written to `absences`. Other group-less rows, including `GUARDIA_PATI`, remain visible in faded colours with disabled controls. Older one-day rows without `full_day` are treated as full-day.
 
 `control_panel` also writes:
 

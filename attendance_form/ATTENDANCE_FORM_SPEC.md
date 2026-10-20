@@ -389,8 +389,8 @@ For example, for `Mikel López (LOPINF)` on Thursday, the `DIGITALITZACIÓ` row 
 There are no row-selection checkboxes. Rows inside the selected full-day or time-range mode follow these rules:
 
 - Rows with one or more student groups are active, counted in hours, and written to `Faltaré -> absences`.
-- Rows whose subject name or code starts with `GUARDIA` are active, counted, and written to `absences` even though they have no student-work text box.
-- Every other row without student groups remains visible in faded colours. It is counted in hours but is not written to `absences`; its `No cal cobrir` control is disabled.
+- Rows whose subject name or code is exactly `GUARDIA` are active, counted, and written to `absences` even though they have no student-work text box.
+- Every other row without student groups, including `GUARDIA_PATI`, remains visible in faded colours. It is counted in hours but is not written to `absences`; its `No cal cobrir` control is disabled.
 
 The `No cal cobrir` toggle marks an absence row as not requiring a substitute teacher. The UI shows it as a compact icon button and strikes through the visible row when active.
 

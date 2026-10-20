@@ -63,7 +63,7 @@ One row per submitted or updated absence request.
 
 ## `absences`
 
-One row per active schedule/class item included by the full-day or partial-day interval. Rows with groups and rows whose subject name or code starts with `GUARDIA` are active; other group-less rows are not stored here even though they count toward parent hours.
+One row per active schedule/class item included by the full-day or partial-day interval. Rows with groups and rows whose subject name or code is exactly `GUARDIA` are active. Other group-less rows, including `GUARDIA_PATI`, are not stored here even though they count toward parent hours.
 
 Rows are linked to `form_data` with `row_id`.
 
