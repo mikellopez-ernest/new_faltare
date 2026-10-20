@@ -82,6 +82,7 @@ Run `grantRequiredPermissions()` manually after adding this feature or changing 
 `Dades de professors -> Llista` uses the updated schema:
 
 - Column F `REDUIT` is the key used to resolve `form_data.teacher_code`.
+- Column I `DNI` is shown in the admin table for the resolved teacher.
 - Column L `CORREU` is the teacher email.
 - Names are built from columns C, D, and E.
 - Do not filter inactive teachers in the admin view; historical submitted rows should still display.
@@ -113,6 +114,8 @@ Do not read selected schedules or recovery items from JSON fields in `form_data`
 The page uses a fixed viewport layout: title, filters, table headers, and the bottom `Gestionat` action remain visible while the table content scrolls.
 
 Teacher and absence-date filters run client-side. The date filter uses a custom Catalan calendar with Monday as the first weekday.
+
+The main table shows the resolved teacher DNI and a `Sí`/`No` multi-day indicator. `Motiu` is not shown in the main table, but remains visible and editable in the record popup.
 
 Clicking a table row opens the complete parent record and its related `recovery` rows. Reads and writes resolve the parent by stable `form_data.row_id`; they must never treat `row_id` as a physical spreadsheet row number. The edit flow protects `row_id`, `created_at`, and `updated_at`, and replaces the selected parent's recovery rows under a script lock.
 

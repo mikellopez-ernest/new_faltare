@@ -604,7 +604,9 @@ function readFormDataRows_(values, teacherByCode) {
       absenceDate: rowObject.absence_date,
       teacherCode: teacherCode,
       teacherName: teacher.name || rowObject.absence_teacher_name || teacherCode,
-      reason: rowObject.motiu,
+      teacherDni: teacher.dni || '',
+      multiDay: parseBoolean_(rowObject.multi_day),
+      multiDayLabel: parseBoolean_(rowObject.multi_day) ? 'Sí' : 'No',
       context: rowObject.context,
       route: route,
       recoverable: route === REASON_ROUTES.RECOVERY,
@@ -839,6 +841,7 @@ function buildTeacherByCode_(values) {
     map[normalizeKey_(code)] = {
       code: code,
       name: joinName_(row[2], row[3], row[4]),
+      dni: String(row[8] || '').trim(),
       email: String(row[11] || '').trim(),
     };
 

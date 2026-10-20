@@ -126,6 +126,7 @@ Teacher name resolution from `Dades de professors -> Llista`:
 - Column D: surname 1
 - Column E: surname 2
 - Column F: `REDUIT`, the teacher code stored in `form_data.teacher_code`
+- Column I: `DNI`, teacher identity document number
 - Column L: `CORREU`, teacher email if needed
 
 Visible teacher value is `C D E`.
@@ -141,7 +142,8 @@ The admin table must show:
 | Select | Checkbox to select the row locally. |
 | `Data absència` | `absence_date` |
 | `Professor` | Resolve `teacher_code` through `Dades de professors -> Llista`; fallback to stored `absence_teacher_name`. |
-| `Motiu` | `motiu` (column N in the normalized schema). |
+| `DNI` | Resolve `teacher_code` through `Dades de professors -> Llista` column I. Empty when no matching teacher exists. |
+| `Més d’un dia?` | `Sí` when `multi_day` is true; otherwise `No`. |
 | `Context` | `context` |
 | `Recuperable?` | `Sí` when `motiu_route` is `J-b`; `No` when `motiu_route` is `J-a`. |
 | `Hores` | `hores` for `J-a`; `hores_a_recuperar` for `J-b`. |

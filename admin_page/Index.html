@@ -296,7 +296,6 @@
     td:first-child,
     th:first-child { width: 48px; text-align: center; }
 
-    .reason { min-width: 220px; max-width: 320px; }
     .context { min-width: 220px; max-width: 360px; white-space: pre-wrap; }
     a { color: var(--accent); font-weight: 600; }
 
@@ -430,7 +429,8 @@
               <th></th>
               <th class="sortable" data-sort-key="absenceDate">Data absència</th>
               <th class="sortable" data-sort-key="teacherName">Professor</th>
-              <th class="sortable" data-sort-key="reason">Motiu</th>
+              <th class="sortable" data-sort-key="teacherDni">DNI</th>
+              <th class="sortable" data-sort-key="multiDayLabel">Més d’un dia?</th>
               <th class="sortable" data-sort-key="context">Context</th>
               <th class="sortable" data-sort-key="recoverableLabel">Recuperable?</th>
               <th class="sortable" data-sort-key="hours">Hores</th>
@@ -605,7 +605,7 @@
       el.summary.textContent = `${rows.length} registres visibles de ${state.rows.length} carregats`;
 
       if (!rows.length) {
-        el.tableBody.innerHTML = '<tr><td colspan="9">No hi ha registres amb aquests filtres.</td></tr>';
+        el.tableBody.innerHTML = '<tr><td colspan="10">No hi ha registres amb aquests filtres.</td></tr>';
         updateSortIndicators();
         updateActionState();
         return;
@@ -616,7 +616,8 @@
           <td><label class="row-check"><input class="row-select" type="checkbox" data-row-id="${escapeAttribute(row.rowId)}" ${state.selectedRows[row.rowId] ? 'checked' : ''} aria-label="Selecciona el registre"></label></td>
           <td>${escapeHtml(row.absenceDate)}</td>
           <td>${escapeHtml(row.teacherName)}</td>
-          <td class="reason">${escapeHtml(row.reason)}</td>
+          <td>${escapeHtml(row.teacherDni)}</td>
+          <td>${escapeHtml(row.multiDayLabel)}</td>
           <td class="context">${escapeHtml(row.context)}</td>
           <td>${escapeHtml(row.recoverableLabel)}</td>
           <td>${escapeHtml(row.hours)}</td>
