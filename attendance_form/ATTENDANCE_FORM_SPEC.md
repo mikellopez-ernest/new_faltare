@@ -386,13 +386,17 @@ Leave that cell blank.
 
 For example, for `Mikel López (LOPINF)` on Thursday, the `DIGITALITZACIÓ` row grouping groups `4A`, `4B`, `4C`, `4D`, and `4E` must show the text box.
 
-There are no row-selection checkboxes. Every row visible under the selected full-day or time-range mode is part of the absence.
+There are no row-selection checkboxes. Rows inside the selected full-day or time-range mode follow these rules:
+
+- Rows with one or more student groups are active, counted in hours, and written to `Faltaré -> absences`.
+- Rows whose subject name or code starts with `GUARDIA` are active, counted, and written to `absences` even though they have no student-work text box.
+- Every other row without student groups remains visible in faded colours. It is counted in hours but is not written to `absences`; its `No cal cobrir` control is disabled.
 
 The `No cal cobrir` toggle marks an absence row as not requiring a substitute teacher. The UI shows it as a compact icon button and strikes through the visible row when active.
 
 `No cal cobrir` does not remove the row from the absence-hour count. It is stored in `Faltaré -> absences.no_cover_required` and is consumed by `control_panel`.
 
-`Hores` and `Hores a recuperar` equal the number of visible grouped schedule rows. Full-day mode counts every row for that day; partial-day mode counts rows at or after `Des de` and before `Torno a les`.
+`Hores` and `Hores a recuperar` equal the number of visible grouped schedule rows, including faded rows. Full-day mode counts every row for that day; partial-day mode counts rows at or after `Des de` and before `Torno a les`.
 
 If the selected date is a weekend or there are no schedule rows for the selected teacher on that day, the form must show an error and block new submissions for the one-day branch.
 

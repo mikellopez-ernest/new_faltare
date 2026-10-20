@@ -1150,6 +1150,7 @@ function validateSubmission_(payload) {
   required_(payload.professorAcompanyant, 'Cal indicar si és professor acompanyant.');
   required_(payload.absenceDate, 'Cal indicar la data prevista de l\'absència.');
   required_(payload.multiDay, 'Cal indicar si és una absència de més d\'un dia.');
+  let singleDayScheduleCount = null;
 
   if (payload.multiDay === 'Sí') {
     required_(payload.reincorporationDate, 'Cal indicar la data de reincorporació.');
@@ -1166,8 +1167,8 @@ function validateSubmission_(payload) {
       validatePartialDayRange_(payload.absenceStartTime, payload.returnTime);
     }
 
-    if (!Array.isArray(payload.selectedScheduleItems) || !payload.selectedScheduleItems.length) {
-      throw new Error('No hi ha cap fila d\'horari dins l\'interval seleccionat.');
+    if (!Array.isArray(payload.selectedScheduleItems)) {
+      throw new Error('Les files de l\'horari no són vàlides.');
     }
 
     const schedule = getScheduleForTeacher({
@@ -1180,20 +1181,24 @@ function validateSubmission_(payload) {
     }
 
     if (schedule.items.length) {
-      const expectedItems = filterScheduleItemsForAbsence_(
+      const intervalItems = filterScheduleItemsForAbsence_(
         schedule.items,
         payload.fullDay,
         payload.absenceStartTime,
         payload.returnTime
       );
 
-      if (!expectedItems.length) {
+      if (!intervalItems.length) {
         throw new Error('No hi ha cap fila d\'horari dins l\'interval seleccionat.');
       }
 
-      if (!hasSameScheduleItems_(payload.selectedScheduleItems, expectedItems)) {
+      const expectedAbsenceItems = intervalItems.filter(shouldCreateAbsenceRegistryItem_);
+
+      if (!hasSameScheduleItems_(payload.selectedScheduleItems, expectedAbsenceItems)) {
         throw new Error('Les files de l\'horari no coincideixen amb l\'interval seleccionat. Torna a carregar el formulari.');
       }
+
+      singleDayScheduleCount = intervalItems.length;
     }
   }
 
@@ -1202,8 +1207,8 @@ function validateSubmission_(payload) {
 
   const route = getReasonRoute_(payload.motiu);
 
-  if (payload.multiDay === 'No') {
-    const scheduleCount = String(payload.selectedScheduleItems.length);
+  if (payload.multiDay === 'No' && singleDayScheduleCount !== null) {
+    const scheduleCount = String(singleDayScheduleCount);
 
     if (route === REASON_ROUTES.HOURS) {
       payload.hores = scheduleCount;
@@ -1282,6 +1287,12 @@ function filterScheduleItemsForAbsence_(items, fullDay, startTime, returnTime) {
     const itemIndex = scheduleTimes.indexOf(String(item.time || '').trim());
     return itemIndex >= startIndex && itemIndex < returnIndex;
   });
+}
+
+function shouldCreateAbsenceRegistryItem_(item) {
+  return Boolean(item.hasGroup) ||
+    normalizeKey_(item.subjectName).indexOf('guardia') === 0 ||
+    normalizeKey_(item.subjectCode).indexOf('guardia') === 0;
 }
 
 function hasSameScheduleItems_(submittedItems, expectedItems) {

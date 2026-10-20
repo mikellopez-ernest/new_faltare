@@ -235,6 +235,12 @@
       opacity: 0.68;
     }
 
+    .schedule-row.schedule-reference-only {
+      background: #f1f5f9;
+      color: var(--muted);
+      opacity: 0.42;
+    }
+
     .schedule-table td:first-child,
     .schedule-table th:first-child {
       width: auto;
@@ -1244,21 +1250,25 @@
       }
 
       clearMessage(el.scheduleMessage);
-      const rows = selection.items.map(({ item, index }) => `
-        <tr class="schedule-row ${item.noCoverRequired ? 'no-cover' : ''}">
+      const rows = selection.items.map(({ item, index }) => {
+        const createsAbsenceRow = shouldCheckScheduleByDefault(item);
+
+        return `
+        <tr class="schedule-row ${item.noCoverRequired ? 'no-cover' : ''} ${createsAbsenceRow ? '' : 'schedule-reference-only'}" ${createsAbsenceRow ? '' : 'aria-disabled="true"'}>
           <td>${escapeHtml(item.time)}</td>
           <td>
             <strong>${escapeHtml(item.subjectName)}</strong><br>
             <span class="help">${escapeHtml(item.groupsText || '')}</span>
           </td>
           <td>
-            <button type="button" class="secondary no-cover-toggle ${item.noCoverRequired ? 'active' : ''}" data-index="${index}" title="No cal cobrir" aria-label="No cal cobrir">⊘</button>
+            <button type="button" class="secondary no-cover-toggle ${item.noCoverRequired ? 'active' : ''}" data-index="${index}" title="No cal cobrir" aria-label="No cal cobrir" ${createsAbsenceRow ? '' : 'disabled'}>⊘</button>
           </td>
           <td>${item.hasGroup
             ? `<textarea class="work-input" data-index="${index}" placeholder="Feina per l'alumnat">${escapeHtml(item.studentWork || '')}</textarea>`
             : ''}</td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
 
       el.scheduleTableWrap.innerHTML = `
         <table class="schedule-table">
@@ -1396,7 +1406,7 @@
     }
 
     function isGuardiaSubject(item) {
-      return normalizeText(item.subjectName) === 'guardia' || normalizeText(item.subjectCode) === 'guardia';
+      return normalizeText(item.subjectName).startsWith('guardia') || normalizeText(item.subjectCode).startsWith('guardia');
     }
 
     function normalizeText(value) {
@@ -1597,11 +1607,13 @@
         throw new Error(selection.error);
       }
 
-      return selection.items.map(({ item }) => ({
-        ...item,
-        studentWork: item.studentWork || '',
-        noCoverRequired: Boolean(item.noCoverRequired),
-      }));
+      return selection.items
+        .filter(({ item }) => shouldCheckScheduleByDefault(item))
+        .map(({ item }) => ({
+          ...item,
+          studentWork: item.studentWork || '',
+          noCoverRequired: Boolean(item.noCoverRequired),
+        }));
     }
 
     function collectRecoveryItems() {

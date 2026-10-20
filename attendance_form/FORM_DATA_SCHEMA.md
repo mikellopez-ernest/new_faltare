@@ -48,8 +48,8 @@ One row per submitted or updated absence request.
 | N | `motiu` | Selected absence reason. |
 | O | `motiu_route` | `J-a` for ordinary hours, `J-b` for recovery hours. |
 | P | `context` | Confidential context text. |
-| Q | `hores` | Hidden hours value for `J-a`, auto-filled from the grouped schedule rows included by the full-day/time-range selection. |
-| R | `hores_a_recuperar` | Recovery hour count for `J-b`, auto-filled from the grouped schedule rows included by the full-day/time-range selection. |
+| Q | `hores` | Hidden hours value for `J-a`, auto-filled from all grouped schedule rows in the full-day/time-range selection, including faded rows not written to `absences`. |
+| R | `hores_a_recuperar` | Recovery hour count for `J-b`, calculated with the same rule as `hores`. |
 | S | `permis_llicencia_absencia` | Selected permit/license/ordinary absence value. For `J-b`, the field is hidden and automatically saved as `Absència ordinària`. |
 | T | `document_file_id` | Uploaded Drive file ID, if any. Preserved on edit when no new file is uploaded. |
 | U | `document_file_url` | Uploaded Drive file URL, if any. Preserved on edit when no new file is uploaded. |
@@ -63,7 +63,7 @@ One row per submitted or updated absence request.
 
 ## `absences`
 
-One row per schedule/class item included by the full-day or partial-day interval.
+One row per active schedule/class item included by the full-day or partial-day interval. Rows with groups and rows whose subject name or code starts with `GUARDIA` are active; other group-less rows are not stored here even though they count toward parent hours.
 
 Rows are linked to `form_data` with `row_id`.
 
