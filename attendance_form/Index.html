@@ -235,17 +235,6 @@
       opacity: 0.68;
     }
 
-    .schedule-row.schedule-disabled {
-      background: #f1f5f9;
-      color: var(--muted);
-      opacity: 0.42;
-    }
-
-    .schedule-row.schedule-disabled button,
-    .schedule-row.schedule-disabled textarea {
-      cursor: not-allowed;
-    }
-
     .schedule-table td:first-child,
     .schedule-table th:first-child {
       width: auto;
@@ -1237,29 +1226,39 @@
 
     function renderCurrentSchedule() {
       const selection = getIncludedScheduleItems();
-      const includedIndexes = {};
-      selection.items.forEach(({ index }) => {
-        includedIndexes[index] = true;
-      });
-      const rows = state.scheduleItems.map((item, index) => {
-        const disabled = !includedIndexes[index];
 
-        return `
-        <tr class="schedule-row ${item.noCoverRequired ? 'no-cover' : ''} ${disabled ? 'schedule-disabled' : ''}" ${disabled ? 'aria-disabled="true"' : ''}>
+      if (selection.error) {
+        el.scheduleTableWrap.innerHTML = '';
+        state.scheduleCount = 0;
+        applyAutoHourDefaults();
+        showMessage(el.scheduleMessage, selection.error, 'error');
+        return;
+      }
+
+      if (!selection.items.length) {
+        el.scheduleTableWrap.innerHTML = '';
+        state.scheduleCount = 0;
+        applyAutoHourDefaults();
+        showMessage(el.scheduleMessage, 'No hi ha cap fila d\'horari dins l\'interval seleccionat.', 'error');
+        return;
+      }
+
+      clearMessage(el.scheduleMessage);
+      const rows = selection.items.map(({ item, index }) => `
+        <tr class="schedule-row ${item.noCoverRequired ? 'no-cover' : ''}">
           <td>${escapeHtml(item.time)}</td>
           <td>
             <strong>${escapeHtml(item.subjectName)}</strong><br>
             <span class="help">${escapeHtml(item.groupsText || '')}</span>
           </td>
           <td>
-            <button type="button" class="secondary no-cover-toggle ${item.noCoverRequired ? 'active' : ''}" data-index="${index}" title="No cal cobrir" aria-label="No cal cobrir" ${disabled ? 'disabled' : ''}>⊘</button>
+            <button type="button" class="secondary no-cover-toggle ${item.noCoverRequired ? 'active' : ''}" data-index="${index}" title="No cal cobrir" aria-label="No cal cobrir">⊘</button>
           </td>
           <td>${item.hasGroup
-            ? `<textarea class="work-input" data-index="${index}" placeholder="Feina per l'alumnat" ${disabled ? 'disabled' : ''}>${escapeHtml(item.studentWork || '')}</textarea>`
+            ? `<textarea class="work-input" data-index="${index}" placeholder="Feina per l'alumnat">${escapeHtml(item.studentWork || '')}</textarea>`
             : ''}</td>
         </tr>
-      `;
-      }).join('');
+      `).join('');
 
       el.scheduleTableWrap.innerHTML = `
         <table class="schedule-table">
@@ -1294,14 +1293,6 @@
       applyPendingStudentWork();
       state.scheduleCount = selection.items.length;
       applyAutoHourDefaults();
-
-      if (selection.error) {
-        showMessage(el.scheduleMessage, selection.error, 'error');
-      } else if (!selection.items.length) {
-        showMessage(el.scheduleMessage, 'No hi ha cap fila d\'horari dins l\'interval seleccionat.', 'error');
-      } else {
-        clearMessage(el.scheduleMessage);
-      }
     }
 
     function getIncludedScheduleItems() {
