@@ -610,6 +610,12 @@ Validation:
 
 ## Submission Storage
 
+### Completed legacy one-day backfill
+
+On `2026-10-21`, a one-time migration reconstructed `full_day`, `absence_start_time`, `return_time`, and `hores` for legacy one-day rows with `absence_date < 2026-10-21`. It used the teacher's actual weekday timetable, matched `absences` children by schedule row ID with a time/subject fallback, and applied the same full-day and partial-day counting rules as the live form.
+
+The migration updated 75 unambiguous rows and left 39 rows unchanged because the current data could not support a safe inference. The temporary migration functions and execution endpoint were removed after a second preview reported zero pending changes. See `LEGACY_BACKFILL_2026-10-21.md` for the audit summary.
+
 Submitted form rows must be stored in:
 
 - Logical table: `Faltaré`
