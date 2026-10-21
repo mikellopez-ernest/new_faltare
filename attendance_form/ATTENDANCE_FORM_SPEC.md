@@ -614,7 +614,7 @@ Validation:
 
 On `2026-10-21`, a one-time migration reconstructed `full_day`, `absence_start_time`, `return_time`, and `hores` for legacy one-day rows with `absence_date < 2026-10-21`. It used the teacher's actual weekday timetable, matched `absences` children by schedule row ID with a time/subject fallback, and applied the same full-day and partial-day counting rules as the live form.
 
-The initial migration updated 75 unambiguous rows. A follow-up resolved 14 more rows from leave-substitute cache identities, bringing the total to 89 reconstructed rows and leaving 25 unchanged because the current data could not support a safe inference. The temporary migration functions and execution endpoint were removed after verification previews reported zero pending changes. See `LEGACY_BACKFILL_2026-10-21.md` for the audit summary.
+The initial migration updated 75 unambiguous rows. A substitute-cache follow-up resolved 14 more, and a corrected-ID follow-up resolved another 18 while relinking affected child foreign keys. This brought the total to 107 reconstructed rows and left 7 unchanged because the current data could not support a safe inference. The temporary migration functions and execution endpoint were removed after verification reported zero pending changes. See `LEGACY_BACKFILL_2026-10-21.md` for the audit summary.
 
 Submitted form rows must be stored in:
 

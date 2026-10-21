@@ -39,7 +39,7 @@ This script must not call `rebuildScheduleCache()` or trigger the cache rebuild 
 
 For one-day absences, `form_data.full_day` controls schedule inclusion. Full-day submissions show every grouped schedule row; partial-day submissions use inclusive `absence_start_time` and exclusive `return_time`. The schedule table has no selection checkboxes. Every visible row counts toward `form_data.hores` for every reason, but only rows with student groups and rows whose subject name or code is exactly `GUARDIA` are written to `absences`. Other group-less rows, including `GUARDIA_PATI`, remain visible in faded colours with disabled controls. For recovery reasons, `form_data.hores_a_recuperar` is a separate user-entered value and determines the recovery rows. Older one-day rows without `full_day` are treated as full-day.
 
-The legacy one-day backfill completed on `2026-10-21`: the initial pass updated 75 rows and a substitute-cache follow-up updated 14 more, for 89 reconstructed rows total and 25 unsafe rows left unchanged. Its temporary functions and endpoint were removed. See `LEGACY_BACKFILL_2026-10-21.md` for the audit summary.
+The legacy one-day backfill completed on `2026-10-21`: the initial pass updated 75 rows, the substitute-cache follow-up updated 14, and the corrected-ID follow-up updated 18 while repairing affected child foreign keys. The final total is 107 reconstructed rows with 7 unsafe rows left unchanged. Its temporary functions and endpoint were removed. See `LEGACY_BACKFILL_2026-10-21.md` for the audit summary.
 
 `control_panel` also writes:
 

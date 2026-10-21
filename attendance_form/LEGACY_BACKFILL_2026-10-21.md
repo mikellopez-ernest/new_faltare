@@ -13,11 +13,12 @@
 - Eligible legacy one-day rows: 114
 - Rows updated in the initial pass: 75
 - Rows updated from substitute schedules in the follow-up pass: 14
-- Total rows reconstructed: 89
-- Full-day rows reconstructed: 52
-- Partial-day rows reconstructed: 37
-- Rows deliberately left unchanged: 25
-- Follow-up verification preview after apply: 14 unchanged, 0 pending updates
+- Rows updated after duplicate IDs were corrected: 18
+- Total rows reconstructed: 107
+- Full-day rows reconstructed: 65
+- Partial-day rows reconstructed: 42
+- Rows deliberately left unchanged: 7
+- Final verification preview: 7 blocked, 0 pending updates
 
 ## Substitute-schedule follow-up
 
@@ -40,41 +41,41 @@ The 14 records whose teacher was no longer directly present in the current cache
 | 110 | 2026-10-15 | VEIANG | Sí | | | 5 |
 | 111 | 2026-10-16 | VEIANG | Sí | | | 5 |
 
+## Corrected-ID follow-up
+
+After the duplicate parent IDs were corrected, 18 additional records were reconstructed. Child foreign keys for the renamed `b` parents were also repaired: 22 `absences.row_id` values and 3 `recovery.row_id` values were relinked while preserving the child item IDs used by existing guard assignments.
+
+| `row_id` | `absence_date` | `teacher_code` | `full_day` | `absence_start_time` | `return_time` | `hores` |
+| --- | --- | --- | --- | --- | --- | --- |
+| 22 | 2026-09-14 | AZNCAT | Sí | | | 4 |
+| 22b | 2026-09-16 | MUCAS | No | 09:00 | 10:00 | 1 |
+| 23 | 2026-09-14 | SANTEC | Sí | | | 3 |
+| 23b | 2026-09-17 | ROMCAT | No | 09:00 | 15:00 | 5 |
+| 24b | 2026-09-17 | SANTEC | Sí | | | 3 |
+| 25 | 2026-09-15 | SANTEC | Sí | | | 8 |
+| 25b | 2026-09-18 | SANTEC | Sí | | | 4 |
+| 26 | 2026-09-15 | AZNCAT | Sí | | | 8 |
+| 27 | 2026-09-16 | PASSOC | Sí | | | 6 |
+| 27b | 2026-09-18 | IZQEXP | No | 09:00 | 11:30 | 2 |
+| 28 | 2026-09-16 | ROMCAT | Sí | | | 5 |
+| 28b | 2026-09-17 | TORSOC | Sí | | | 5 |
+| 29 | 2026-09-16 | SANTEC | Sí | | | 6 |
+| 29b | 2026-09-17 | SALEXP | Sí | | | 2 |
+| 30b | 2026-09-17 | BORMAT | Sí | | | 3 |
+| 102 | 2026-10-09 | GIMCOM | No | 18:30 | 19:30 | 1 |
+| 103 | 2026-10-13 | VEIANG | Sí | | | 5 |
+| 105 | 2026-10-16 | NOPFI | No | 12:30 | 13:30 | 1 |
+
 ## Rows left unchanged
 
-These 25 records still require manual evidence or data repair before they can be reconstructed safely.
+These seven records still require manual evidence before they can be reconstructed safely.
 
-### Duplicate parent `row_id` values (22 rows)
-
-| `row_id` | `absence_date` | `teacher_code` |
-| --- | --- | --- |
-| 102 | 2026-09-04 | ROMCAT |
-| 103 | 2026-09-07 | JOVEXP |
-| 105 | 2026-09-15 | OSEVIP |
-| 22 | 2026-09-14 | AZNCAT |
-| 23 | 2026-09-14 | SANTEC |
-| 24 | 2026-09-14 | ROMCAT |
-| 25 | 2026-09-15 | SANTEC |
-| 26 | 2026-09-15 | AZNCAT |
-| 27 | 2026-09-16 | PASSOC |
-| 28 | 2026-09-16 | ROMCAT |
-| 29 | 2026-09-16 | SANTEC |
-| 22 | 2026-09-16 | MUCAS |
-| 23 | 2026-09-17 | ROMCAT |
-| 24 | 2026-09-17 | SANTEC |
-| 25 | 2026-09-18 | SANTEC |
-| 27 | 2026-09-18 | IZQEXP |
-| 28 | 2026-09-17 | TORSOC |
-| 29 | 2026-09-17 | SALEXP |
-| 30 | 2026-09-17 | BORMAT |
-| 102 | 2026-10-09 | GIMCOM |
-| 103 | 2026-10-13 | VEIANG |
-| 105 | 2026-10-16 | NOPFI |
-
-### Absence child no longer matches the current cache (3 rows)
-
-| `row_id` | `absence_date` | `teacher_code` |
-| --- | --- | --- |
-| 40 | 2026-09-21 | MILINF |
-| 74 | 2026-10-02 | MARCEX |
-| 107 | 2026-10-13 | LOPINF |
+| `row_id` | `absence_date` | `teacher_code` | Reason |
+| --- | --- | --- | --- |
+| 2 | 2026-09-04 | ROMCAT | No surviving absence child rows or legacy hour count. |
+| 3 | 2026-09-07 | JOVEXP | No surviving absence child rows or legacy hour count. |
+| 4 | 2026-09-15 | OSEVIP | Legacy count is 2, but the selected interval is unknown. |
+| 24 | 2026-09-14 | ROMCAT | No surviving absence child rows or legacy hour count. |
+| 40 | 2026-09-21 | MILINF | Saved `13:30 ROB` row is now assigned to `VAPRO`. |
+| 74 | 2026-10-02 | MARCEX | Saved `10:00 BIO` row is now assigned to `DOEXP`. |
+| 107 | 2026-10-13 | LOPINF | Saved `13:30 DIG` row currently has multiple possible owners. |
