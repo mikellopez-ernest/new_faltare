@@ -47,6 +47,9 @@ const FORM_DATA_COLUMNS = [
   'confirmation_ok',
   'status',
   'managed',
+  'full_day',
+  'absence_start_time',
+  'return_time',
 ];
 
 const RECOVERY_COLUMNS = [
@@ -596,6 +599,8 @@ function readFormDataRows_(values, teacherByCode) {
     const teacherCode = String(rowObject.teacher_code || '').trim();
     const teacher = teacherByCode[normalizeKey_(teacherCode)] || {};
     const licenseValue = String(rowObject.permis_llicencia_absencia || '').trim();
+    const multiDay = parseBoolean_(rowObject.multi_day);
+    const fullDayValue = String(rowObject.full_day || '').trim();
 
     return {
       rowId: rowId,
@@ -603,14 +608,15 @@ function readFormDataRows_(values, teacherByCode) {
       absenceDate: rowObject.absence_date,
       teacherCode: teacherCode,
       teacherName: teacher.name || rowObject.absence_teacher_name || teacherCode,
-      teacherDni: teacher.dni || '',
-      multiDay: parseBoolean_(rowObject.multi_day),
-      multiDayLabel: parseBoolean_(rowObject.multi_day) ? 'Sí' : 'No',
+      multiDay: multiDay,
+      multiDayLabel: multiDay ? 'Sí' : 'No',
+      fullDayLabel: multiDay ? '' : (!fullDayValue || parseBoolean_(fullDayValue) ? 'Sí' : 'No'),
+      hours: rowObject.hores,
+      absenceStartTime: normalizeRecoveryTime_(rowObject.absence_start_time),
+      returnTime: normalizeRecoveryTime_(rowObject.return_time),
       context: rowObject.context,
       route: route,
       recoverable: route === REASON_ROUTES.RECOVERY,
-      recoverableLabel: route === REASON_ROUTES.RECOVERY ? 'Sí' : 'No',
-      hours: route === REASON_ROUTES.RECOVERY ? rowObject.hores_a_recuperar : rowObject.hores,
       license: normalizeKey_(licenseValue) === normalizeKey_('Absència ordinària') ? 'No' : 'Sí',
       licenseValue: licenseValue,
       documentUrl: rowObject.document_file_url,

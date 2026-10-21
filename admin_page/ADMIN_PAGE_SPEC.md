@@ -147,12 +147,13 @@ The admin table must show:
 | Select | Checkbox to select the row locally. |
 | `Data absència` | `absence_date` |
 | `Professor` | Resolve `teacher_code` through `Dades de professors -> Llista`; fallback to stored `absence_teacher_name`. |
-| `DNI` | Resolve `teacher_code` through `Dades de professors -> Llista` column I. Empty when no matching teacher exists. |
-| `Més d’un dia?` | `Sí` when `multi_day` is true; otherwise `No`. |
+| `Més d’un dia` | `Sí` when `multi_day` is true; otherwise `No`. |
+| `Dia sencer` | Empty for multi-day absences. For one-day absences, `Sí` when `full_day` is true and `No` when false. A blank legacy one-day value is treated as `Sí`. |
+| `Hores` | `hores`, independently of whether the absence is recoverable. |
+| `Hora inici` | `absence_start_time` |
+| `Hora tornada` | `return_time` |
 | `Context` | `context` |
-| `Recuperable?` | `Sí` when `motiu_route` is `J-b`; `No` when `motiu_route` is `J-a`. |
-| `Hores` | `hores` for `J-a`; `hores_a_recuperar` for `J-b`. |
-| `ATRI?` | `No` if `permis_llicencia_absencia` is `Absència ordinària`; `Sí` otherwise. |
+| `Atri?` | `No` if `permis_llicencia_absencia` is `Absència ordinària`; `Sí` otherwise. |
 | `Document` | Link from `document_file_url`. |
 
 ## Filters
