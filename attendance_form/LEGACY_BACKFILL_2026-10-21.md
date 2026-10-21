@@ -11,15 +11,38 @@
 
 - Rows scanned: 138
 - Eligible legacy one-day rows: 114
-- Rows updated: 75
-- Full-day rows reconstructed: 41
-- Partial-day rows reconstructed: 34
-- Rows deliberately left unchanged: 39
-- Verification preview after apply: 75 unchanged, 0 pending updates
+- Rows updated in the initial pass: 75
+- Rows updated from substitute schedules in the follow-up pass: 14
+- Total rows reconstructed: 89
+- Full-day rows reconstructed: 52
+- Partial-day rows reconstructed: 37
+- Rows deliberately left unchanged: 25
+- Follow-up verification preview after apply: 14 unchanged, 0 pending updates
+
+## Substitute-schedule follow-up
+
+The 14 records whose teacher was no longer directly present in the current cache were reconstructed from the timetable retained under the leave substitute's effective identity. The two `GONCOM` rows use the confirmed Wednesday `VAPRO` timetable, including faded management rows in `hores`.
+
+| `row_id` | `absence_date` | `teacher_code` | `full_day` | `absence_start_time` | `return_time` | `hores` |
+| --- | --- | --- | --- | --- | --- | --- |
+| 5 | 2026-09-07 | VEIANG | Sí | | | 5 |
+| 31 | 2026-09-17 | AZNCAT | No | 11:30 | 15:00 | 3 |
+| 35 | 2026-09-21 | BORMAT | Sí | | | 5 |
+| 43 | 2026-09-22 | QUVIP | Sí | | | 4 |
+| 45 | 2026-09-30 | VEIANG | No | 09:00 | 12:30 | 3 |
+| 48 | 2026-09-23 | GONCOM | Sí | | | 5 |
+| 51 | 2026-09-24 | QUVIP | Sí | | | 3 |
+| 57 | 2026-09-25 | QUVIP | Sí | | | 1 |
+| 59 | 2026-09-25 | VEIANG | No | 09:00 | 13:30 | 4 |
+| 63 | 2026-09-28 | QUVIP | Sí | | | 4 |
+| 90 | 2026-10-07 | GONCOM | Sí | | | 5 |
+| 109 | 2026-10-14 | VEIANG | Sí | | | 4 |
+| 110 | 2026-10-15 | VEIANG | Sí | | | 5 |
+| 111 | 2026-10-16 | VEIANG | Sí | | | 5 |
 
 ## Rows left unchanged
 
-These records require manual evidence or data repair before they can be reconstructed safely.
+These 25 records still require manual evidence or data repair before they can be reconstructed safely.
 
 ### Duplicate parent `row_id` values (22 rows)
 
@@ -47,25 +70,6 @@ These records require manual evidence or data repair before they can be reconstr
 | 102 | 2026-10-09 | GIMCOM |
 | 103 | 2026-10-13 | VEIANG |
 | 105 | 2026-10-16 | NOPFI |
-
-### Schedule not found in the current cache (14 rows)
-
-| `row_id` | `absence_date` | `teacher_code` |
-| --- | --- | --- |
-| 5 | 2026-09-07 | VEIANG |
-| 31 | 2026-09-17 | AZNCAT |
-| 35 | 2026-09-21 | BORMAT |
-| 43 | 2026-09-22 | QUVIP |
-| 45 | 2026-09-30 | VEIANG |
-| 48 | 2026-09-23 | GONCOM |
-| 51 | 2026-09-24 | QUVIP |
-| 57 | 2026-09-25 | QUVIP |
-| 59 | 2026-09-25 | VEIANG |
-| 63 | 2026-09-28 | QUVIP |
-| 90 | 2026-10-07 | GONCOM |
-| 109 | 2026-10-14 | VEIANG |
-| 110 | 2026-10-15 | VEIANG |
-| 111 | 2026-10-16 | VEIANG |
 
 ### Absence child no longer matches the current cache (3 rows)
 
