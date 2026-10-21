@@ -118,6 +118,11 @@ When the endpoint opens:
 4. Client stores all returned parent rows in memory.
 5. Filtering and sorting happen in the browser without re-reading the database.
 
+`row_id` is an opaque stable identifier and may contain letters. It must remain a
+string throughout the server response and client state; it must never be parsed as
+a number or used as the physical sheet row number. Database display order is kept
+separately in the numeric `dbOrder` field.
+
 The main table does not preload child sheets. When a row is opened, the server reads only the related `recovery` rows by stable `row_id`. The admin page does not parse legacy JSON fields.
 
 Teacher name resolution from `Dades de professors -> Llista`:

@@ -591,15 +591,14 @@ function readFormDataRows_(values, teacherByCode) {
 
   return values.slice(1).map(function(row, index) {
     const rowObject = rowToObjectByHeader_(row, headerMap);
-    const rowNumber = Number(rowObject.row_id || index + 2);
+    const rowId = String(rowObject.row_id || '').trim();
     const route = String(rowObject.motiu_route || '').trim();
     const teacherCode = String(rowObject.teacher_code || '').trim();
     const teacher = teacherByCode[normalizeKey_(teacherCode)] || {};
     const licenseValue = String(rowObject.permis_llicencia_absencia || '').trim();
 
     return {
-      rowId: String(rowObject.row_id || rowNumber),
-      rowNumber: rowNumber,
+      rowId: rowId,
       selected: false,
       absenceDate: rowObject.absence_date,
       teacherCode: teacherCode,
