@@ -203,7 +203,7 @@ If a time slot has no recovery candidates and no absences, it still shows the gr
 
 One-day absence rows are read from `Faltaré -> absences` when child rows exist. `Horaris -> schedule_cache` is used for matching one-day parents without children and for every matching multi-day parent. Multi-day coverage includes `absence_date` and excludes `reincorporation_date`.
 
-If an absence row represents a `GUARDIA` slot, it must be displayed in the main daily absence table so staff can see that the teacher is absent. It must not be displayed in the management popup as a row that needs coverage. The absent teacher is still unavailable for substitutions at that slot and must be excluded from the guard-teacher dropdown candidate pool.
+If an absence row represents a `GUARDIA` or `GUARDIA_PATI` slot, it must be displayed in the main daily absence table so staff can see that the teacher is absent. It must not be displayed in the management popup as a row that needs coverage. The absent teacher is still unavailable for substitutions at that slot and must be excluded from the guard-teacher dropdown candidate pool.
 
 Absent teacher names are resolved by joining:
 

@@ -58,12 +58,12 @@ One row per submitted or updated absence request.
 | X | `status` | Initial value `submitted`; changed to `updated` when edited. |
 | Y | `managed` | `TRUE` when the admin page marks the row as managed; empty/FALSE otherwise. |
 | Z | `full_day` | `Sí` or `No` for one-day absences; empty for multi-day absences. Older blank one-day rows are treated as `Sí`. |
-| AA | `absence_start_time` | Inclusive `Des de` boundary for partial-day absences. |
-| AB | `return_time` | Exclusive `Torno a les` boundary for partial-day absences. |
+| AA | `absence_start_time` | One-day absence start: inclusive `Des de` boundary for partial-day absences; earliest timetable slot start for full-day absences. |
+| AB | `return_time` | One-day absence end: exclusive `Torno a les` boundary for partial-day absences; start of the slot after the latest timetable slot for full-day absences (`21:30` after slot 12). |
 
 ## `absences`
 
-One row per active schedule/class item included by the full-day or partial-day interval. Rows with groups and rows whose subject name or code is exactly `GUARDIA` are active. Other group-less rows, including `GUARDIA_PATI`, are not stored here even though they count toward parent hours.
+One row per active schedule/class item included by the full-day or partial-day interval. Rows with groups and rows whose subject name or code is exactly `GUARDIA` or `GUARDIA_PATI` are active. Other group-less rows are not stored here even though they count toward parent hours.
 
 Rows are linked to `form_data` with `row_id`.
 

@@ -55,7 +55,7 @@ The page is titled `Panell de guàrdies` and shows a selected-day guard-duty con
 - If matching recovery rows exist for that date/time, a yellow `Guàrdia preferent:` row appears immediately after the green row.
 - Preferred recovery teacher names are indented below the `Guàrdia preferent:` label.
 - Absence rows appear under the yellow row and are read from `Faltaré -> absences`.
-- Absence rows whose subject is `GUARDIA` are displayed in the main table for visibility, but are not displayed as popup rows to cover; the absent teacher is still removed from guard-teacher candidates for that slot.
+- Absence rows whose subject is `GUARDIA` or `GUARDIA_PATI` are displayed in the main table for visibility, but are not displayed as popup rows to cover; the absent teacher is still removed from guard-teacher candidates for that slot.
 - Absence rows with `absences.no_cover_required = TRUE` default to `No cal cobrir` in the popup and do not consume a guard teacher.
 - If a matching `form_data` parent row has no `absences` child rows, the page computes fallback visible rows from `Horaris -> schedule_cache`, using `effective_teacher_code` and `subject_full_name`.
 - Multi-day `form_data` rows are active from `absence_date` until the day before `reincorporation_date`; the reincorporation date itself is excluded. They always use the selected weekday's `schedule_cache` rows rather than repeating day-one children, and display `multi_day_student_work` as the task text.

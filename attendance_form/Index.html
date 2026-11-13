@@ -616,6 +616,7 @@
           <label class="label" for="documentFile">Document justificatiu</label>
           <p class="help">IMPORTANT. En cas de llicència o permís demanat per ATRI, el document justificatiu és el pdf o captura de pantalla amb l'acceptació del permis o llicència.</p>
           <input id="documentFile" name="documentFile" type="file">
+          <div id="existingDocument" class="help hidden" aria-live="polite"></div>
         </div>
 
         <div class="field">
@@ -705,6 +706,7 @@
       permisLlicenciaAbsenciaBlock: document.getElementById('permisLlicenciaAbsenciaBlock'),
       permisLlicenciaAbsencia: document.getElementById('permisLlicenciaAbsencia'),
       documentFile: document.getElementById('documentFile'),
+      existingDocument: document.getElementById('existingDocument'),
       submitButton: document.getElementById('submitButton'),
       submitMessage: document.getElementById('submitMessage'),
       branchNotice: document.getElementById('branchNotice'),
@@ -988,6 +990,7 @@
       state.editRowId = '';
       state.pendingEditData = null;
       state.pendingSelectedScheduleItems = null;
+      renderExistingDocument(null);
       el.firstScreen.classList.add('hidden');
       el.introBlock.classList.add('hidden');
       el.createNoticeScreen.classList.remove('hidden');
@@ -1120,15 +1123,19 @@
       state.editRowId = data.editRowId;
       state.pendingEditData = data;
       state.pendingSelectedScheduleItems = data.selectedScheduleItems || [];
+      state.scheduleItems = [];
+      state.scheduleCount = 0;
+      el.scheduleTableWrap.innerHTML = '';
 
       el.teacherEmail.value = data.teacherEmail || el.teacherEmail.value;
+      renderExistingDocument(data.documentFile || {});
       setRadioValue('action', ACTION_UPDATE);
       setRadioValue('professorAcompanyant', data.professorAcompanyant || 'No');
       el.absenceDate.value = data.absenceDate || el.absenceDate.value;
       setRadioValue('multiDay', data.multiDay || 'No');
       setRadioValue('fullDay', data.fullDay || 'Sí');
-      el.absenceStartTime.value = data.absenceStartTime || '';
-      el.returnTime.value = data.returnTime || '';
+      el.absenceStartTime.value = normalizeRecoveryTime(data.absenceStartTime || '');
+      el.returnTime.value = normalizeRecoveryTime(data.returnTime || '');
       el.reincorporationDate.value = data.reincorporationDate || '';
       el.multiDayStudentWork.value = data.multiDayStudentWork || '';
       el.motiu.value = data.motiu || '';
@@ -1138,9 +1145,12 @@
       document.getElementById('permisLlicenciaAbsencia').value = data.permisLlicenciaAbsencia || '';
       document.getElementById('confirmationOk').checked = Boolean(data.confirmationOk);
 
+      el.firstScreen.classList.add('hidden');
+      el.introBlock.classList.add('hidden');
+      el.createNoticeScreen.classList.remove('hidden');
+
       updateReasonRoute();
       updateMultiDayMode();
-      renderStoredScheduleIfNeeded();
 
       if ((data.recoveryItems || []).length) {
         el.horesARecuperar.value = data.recoveryItems.length;
@@ -1157,12 +1167,22 @@
             timeInput.value = normalizeRecoveryTime(item.time || '');
           }
         });
+      } else {
+        renderRecoveryControls();
       }
 
-      el.firstScreen.classList.add('hidden');
-      el.introBlock.classList.add('hidden');
-      el.createNoticeScreen.classList.remove('hidden');
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderExistingDocument(file) {
+      el.documentFile.value = '';
+      el.existingDocument.classList.toggle('hidden', !file);
+      const url = file && String(file.url || '');
+      el.existingDocument.innerHTML = file
+        ? (url && (url.toLowerCase().startsWith('https:') || url.toLowerCase().startsWith('http:'))
+          ? `Document actual: <a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(file.name || 'Obre el document')}</a><br>Es conservarà si no selecciones un fitxer nou. Per substituir-lo, selecciona un altre fitxer.`
+          : 'No hi ha cap document adjunt en aquest registre.')
+        : '';
     }
 
     function refreshScheduleIfNeeded() {
@@ -1172,6 +1192,10 @@
 
       const teacherEmail = el.teacherEmail.value;
       const absenceDate = el.absenceDate.value;
+      const editRowId = state.editRowId;
+      const isCurrentRequest = () => el.teacherEmail.value === teacherEmail &&
+        el.absenceDate.value === absenceDate && state.editRowId === editRowId &&
+        getRadioValue('multiDay') === 'No' && !el.createNoticeScreen.classList.contains('hidden');
 
       if (!teacherEmail || !absenceDate) {
         return;
@@ -1181,8 +1205,11 @@
       showMessage(el.scheduleMessage, 'Carregant horari...', 'loading');
 
       google.script.run
-        .withSuccessHandler(renderSchedule)
+        .withSuccessHandler((result) => {
+          if (isCurrentRequest()) renderSchedule(result);
+        })
         .withFailureHandler((error) => {
+          if (!isCurrentRequest()) return;
           if (renderStoredScheduleIfNeeded(error.message || String(error))) {
             return;
           }
@@ -1227,6 +1254,7 @@
       }
 
       clearMessage(el.scheduleMessage);
+      applyPendingStudentWork();
       renderCurrentSchedule();
     }
 
@@ -1263,7 +1291,7 @@
           <td>
             <button type="button" class="secondary no-cover-toggle ${item.noCoverRequired ? 'active' : ''}" data-index="${index}" title="No cal cobrir" aria-label="No cal cobrir" ${createsAbsenceRow ? '' : 'disabled'}>⊘</button>
           </td>
-          <td>${item.hasGroup
+          <td>${item.hasGroup && !isGuardiaSubject(item)
             ? `<textarea class="work-input" data-index="${index}" placeholder="Feina per l'alumnat">${escapeHtml(item.studentWork || '')}</textarea>`
             : ''}</td>
         </tr>
@@ -1300,7 +1328,6 @@
         });
       });
 
-      applyPendingStudentWork();
       state.scheduleCount = selection.items.length;
       applyAutoHourDefaults();
     }
@@ -1351,11 +1378,19 @@
         return false;
       }
 
+      if (!state.pendingEditData || state.pendingEditData.teacherEmail !== el.teacherEmail.value ||
+          state.pendingEditData.absenceDate !== el.absenceDate.value) {
+        return false;
+      }
+
       state.scheduleItems = state.pendingSelectedScheduleItems.map(normalizeStoredScheduleItem);
       renderSchedule({
         items: state.scheduleItems,
         message: '',
       });
+
+      const selection = getIncludedScheduleItems();
+      if (selection.error || !selection.items.length) return true;
 
       showMessage(
         el.scheduleMessage,
@@ -1397,7 +1432,8 @@
     }
 
     function isGuardiaSubject(item) {
-      return normalizeText(item.subjectName) === 'guardia' || normalizeText(item.subjectCode) === 'guardia';
+      return ['guardia', 'guardia_pati'].includes(normalizeText(item.subjectName)) ||
+        ['guardia', 'guardia_pati'].includes(normalizeText(item.subjectCode));
     }
 
     function normalizeText(value) {
@@ -1438,48 +1474,40 @@
         hasGroup: typeof item.hasGroup === 'boolean' ? item.hasGroup : groups.length > 0,
         subjectName: item.subjectName || item.subject || item.subjectCode || '',
         subjectCode: item.subjectCode || '',
-        time: item.time || HOUR_OPTIONS[Number(item.slot || 1) - 1] || '',
+        time: normalizeRecoveryTime(item.time || HOUR_OPTIONS[Number(item.slot || 1) - 1] || ''),
         noCoverRequired: Boolean(item.noCoverRequired),
       };
     }
 
     function applyPendingStudentWork() {
-      if (!state.pendingSelectedScheduleItems) {
+      const saved = state.pendingEditData;
+      if (!saved || saved.teacherEmail !== el.teacherEmail.value || saved.absenceDate !== el.absenceDate.value) {
         return;
       }
 
-      state.pendingSelectedScheduleItems.forEach((savedItem) => {
-        const index = state.scheduleItems.findIndex((item) => {
-          const savedIds = getScheduleRowIds(savedItem);
-          return (item.rowIds || []).some((rowId) => savedIds.includes(String(rowId)));
-        });
+      state.scheduleItems.forEach((item) => {
+        const ids = getScheduleRowIds(item);
+        let matches = (state.pendingSelectedScheduleItems || []).filter((savedItem) =>
+          getScheduleRowIds(savedItem).some((id) => ids.includes(id)));
 
-        if (index === -1) {
-          return;
+        // A cache rebuild can change row IDs: use an unambiguous class identity instead.
+        if (!matches.length) {
+          matches = (state.pendingSelectedScheduleItems || []).filter((savedItem) => {
+            const sameTime = normalizeRecoveryTime(savedItem.time) === normalizeRecoveryTime(item.time);
+            const sameSubject = normalizeText(savedItem.subjectCode || savedItem.subjectName) ===
+              normalizeText(item.subjectCode || item.subjectName);
+            const groups = (entry) => normalizeStoredScheduleItem(entry).groups.map(normalizeText).sort().join('|');
+            return sameTime && sameSubject && groups(savedItem) === groups(item);
+          });
         }
 
-        const input = document.querySelector(`.work-input[data-index="${index}"]`);
-
-        if (!Object.prototype.hasOwnProperty.call(state.scheduleItems[index], 'studentWork')) {
-          state.scheduleItems[index].studentWork = savedItem.studentWork || '';
+        if (matches.length !== 1) return;
+        const savedItem = matches[0];
+        if (!Object.prototype.hasOwnProperty.call(item, 'studentWork')) {
+          item.studentWork = savedItem.studentWork || '';
         }
-
-        if (input) {
-          input.value = state.scheduleItems[index].studentWork || '';
-        }
-
-        if (savedItem.noCoverRequired) {
-          const button = document.querySelector(`.no-cover-toggle[data-index="${index}"]`);
-          const row = button ? button.closest('.schedule-row') : null;
-          state.scheduleItems[index].noCoverRequired = true;
-
-          if (button) {
-            button.classList.add('active');
-          }
-
-          if (row) {
-            row.classList.add('no-cover');
-          }
+        if (!Object.prototype.hasOwnProperty.call(item, 'noCoverRequired')) {
+          item.noCoverRequired = Boolean(savedItem.noCoverRequired);
         }
       });
     }

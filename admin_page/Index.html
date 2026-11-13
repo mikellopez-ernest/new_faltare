@@ -137,6 +137,17 @@
       grid-template-columns: 1fr 38px;
     }
 
+    .date-day-navigation {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .date-day-navigation button {
+      padding: 2px 14px;
+      font-size: 20px;
+    }
+
     .date-input-row input {
       border-radius: 5px 0 0 5px;
       cursor: pointer;
@@ -411,6 +422,10 @@
             <input id="dateFilterDisplay" type="text" lang="ca" inputmode="none" readonly placeholder="dd/mm/aaaa" aria-label="Filtra per data">
             <button class="clear-date" id="clearDateFilter" type="button" title="Esborra la data" aria-label="Esborra la data">×</button>
           </div>
+          <div class="date-day-navigation" aria-label="Canvia de dia">
+            <button id="previousDate" type="button" title="Dia anterior" aria-label="Dia anterior" disabled>←</button>
+            <button id="nextDate" type="button" title="Dia següent" aria-label="Dia següent" disabled>→</button>
+          </div>
           <div id="calendar" class="calendar hidden" aria-label="Calendari"></div>
         </div>
 
@@ -429,12 +444,14 @@
               <th></th>
               <th class="sortable" data-sort-key="absenceDate">Data absència</th>
               <th class="sortable" data-sort-key="teacherName">Professor</th>
+              <th class="sortable" data-sort-key="dni">DNI</th>
               <th class="sortable" data-sort-key="multiDayLabel">Més d’un dia</th>
               <th class="sortable" data-sort-key="fullDayLabel">Dia sencer</th>
               <th class="sortable" data-sort-key="hours">Hores</th>
               <th class="sortable" data-sort-key="absenceStartTime">Hora inici</th>
               <th class="sortable" data-sort-key="returnTime">Hora tornada</th>
               <th class="sortable" data-sort-key="context">Context</th>
+              <th class="sortable" data-sort-key="motiu">Motiu</th>
               <th class="sortable" data-sort-key="license">Atri?</th>
               <th class="sortable" data-sort-key="documentUrl">Document</th>
             </tr>
@@ -513,6 +530,8 @@
       datePicker: document.getElementById('datePicker'),
       dateFilterDisplay: document.getElementById('dateFilterDisplay'),
       clearDateFilter: document.getElementById('clearDateFilter'),
+      previousDate: document.getElementById('previousDate'),
+      nextDate: document.getElementById('nextDate'),
       calendar: document.getElementById('calendar'),
       managedFilter: document.getElementById('managedFilter'),
       recoverableFilter: document.getElementById('recoverableFilter'),
@@ -546,6 +565,8 @@
       [el.managedFilter, el.recoverableFilter, el.atriFilter].forEach((input) => input.addEventListener('change', render));
       el.dateFilterDisplay.addEventListener('click', toggleCalendar);
       el.clearDateFilter.addEventListener('click', clearDateFilter);
+      el.previousDate.addEventListener('click', () => shiftDateFilter(-1));
+      el.nextDate.addEventListener('click', () => shiftDateFilter(1));
       el.calendar.addEventListener('click', handleCalendarClick);
 
       document.addEventListener('click', (event) => {
@@ -606,7 +627,7 @@
       el.summary.textContent = `${rows.length} registres visibles de ${state.rows.length} carregats`;
 
       if (!rows.length) {
-        el.tableBody.innerHTML = '<tr><td colspan="11">No hi ha registres amb aquests filtres.</td></tr>';
+        el.tableBody.innerHTML = '<tr><td colspan="13">No hi ha registres amb aquests filtres.</td></tr>';
         updateSortIndicators();
         updateActionState();
         return;
@@ -617,12 +638,14 @@
           <td><label class="row-check"><input class="row-select" type="checkbox" data-row-id="${escapeAttribute(row.rowId)}" ${state.selectedRows[row.rowId] ? 'checked' : ''} aria-label="Selecciona el registre"></label></td>
           <td>${escapeHtml(row.absenceDate)}</td>
           <td>${escapeHtml(row.teacherName)}</td>
+          <td>${escapeHtml(row.dni)}</td>
           <td>${escapeHtml(row.multiDayLabel)}</td>
           <td>${escapeHtml(row.fullDayLabel)}</td>
           <td>${escapeHtml(row.hours)}</td>
           <td>${escapeHtml(row.absenceStartTime)}</td>
           <td>${escapeHtml(row.returnTime)}</td>
           <td class="context">${escapeHtml(row.context)}</td>
+          <td class="context">${escapeHtml(row.motiu)}</td>
           <td>${escapeHtml(row.license)}</td>
           <td>${row.documentUrl ? `<a href="${escapeAttribute(row.documentUrl)}" target="_blank" rel="noopener">Obre</a>` : ''}</td>
         </tr>
@@ -736,10 +759,26 @@
     }
 
     function clearDateFilter() {
-      state.dateFilter = '';
-      el.dateFilterDisplay.value = '';
+      setDateFilter('');
+    }
+
+    function setDateFilter(iso) {
+      state.dateFilter = iso;
+      el.dateFilterDisplay.value = iso ? formatCatalanDate(iso) : '';
+      el.previousDate.disabled = !iso;
+      el.nextDate.disabled = !iso;
+      if (iso) {
+        const [year, month, day] = iso.split('-').map(Number);
+        state.calendarMonth = startOfMonth(new Date(year, month - 1, day));
+      }
       el.calendar.classList.add('hidden');
       render();
+    }
+
+    function shiftDateFilter(offset) {
+      if (!state.dateFilter) return;
+      const [year, month, day] = state.dateFilter.split('-').map(Number);
+      setDateFilter(toLocalIso(new Date(year, month - 1, day + offset)));
     }
 
     function renderCalendar() {
@@ -782,10 +821,7 @@
 
       const dayButton = event.target.closest('[data-date]');
       if (dayButton) {
-        state.dateFilter = dayButton.dataset.date;
-        el.dateFilterDisplay.value = formatCatalanDate(state.dateFilter);
-        el.calendar.classList.add('hidden');
-        render();
+        setDateFilter(dayButton.dataset.date);
       }
     }
 

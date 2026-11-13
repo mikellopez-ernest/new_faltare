@@ -288,6 +288,10 @@ Before the table, show the mandatory question `Absència de tota la jornada?` wi
 - `Torno a les` must be later than `Des de`.
 - Older stored rows without this field load as full-day absences.
 
+For every full-day one-day submission or update, the server calculates and stores `absence_start_time` from the earliest schedule slot and `return_time` from the slot immediately after the latest schedule slot. It uses all schedule rows for the teacher and absence weekday, including group-less reference rows and every subject type. Gaps between slots do not shorten the interval. Slots 3–6 produce `10:00`–`15:00`; a final slot 12 produces `21:30` as the return time. These values are calculated from the trusted cache, never from client-supplied full-day times. A full-day save without a usable live timetable is rejected rather than guessing the boundaries. Partial-day and multi-day behavior is unchanged.
+
+The one-time `FullDayBackfill.js` maintenance methods `previewFullDayTimes_()` and `backfillFullDayTimes_()` calculate the same boundaries for existing one-day full-day records, where `full_day` is explicitly true (`Sí`/`TRUE`); unresolved legacy blanks are excluded. They run manually in the Apps Script editor, use a script lock, and update only the two time cells. Cache rows match `effective_teacher_code` first; historical original teachers absent from that identity may match `source_teacher_code`. Missing or invalid timetables are reported and left unchanged. The write method preserves previous values in script properties and repeated runs skip already-correct rows. No child records, hours, metadata, or confirmation emails are changed.
+
 The form must show the selected teacher's schedule for the selected absence date.
 
 Teacher code lookup:
@@ -389,8 +393,8 @@ For example, for `Mikel López (LOPINF)` on Thursday, the `DIGITALITZACIÓ` row 
 There are no row-selection checkboxes. Rows inside the selected full-day or time-range mode follow these rules:
 
 - Rows with one or more student groups are active, counted in hours, and written to `Faltaré -> absences`.
-- Rows whose subject name or code is exactly `GUARDIA` are active, counted, and written to `absences` even though they have no student-work text box.
-- Every other row without student groups, including `GUARDIA_PATI`, remains visible in faded colours. It is counted in hours but is not written to `absences`; its `No cal cobrir` control is disabled.
+- Rows whose subject name or code is exactly `GUARDIA` or `GUARDIA_PATI` are active, counted, and written to `absences` without a student-work text box for either guard-duty type.
+- Every other row without student groups remains visible in faded colours. It is counted in hours but is not written to `absences`; its `No cal cobrir` control is disabled.
 
 The `No cal cobrir` toggle marks an absence row as not requiring a substitute teacher. The UI shows it as a compact icon button and strikes through the visible row when active.
 
@@ -586,6 +590,7 @@ Upload behavior:
 Validation:
 
 - The upload is currently not mandatory.
+- When editing, display the stored document name as a link and explain that it is retained unless a new file is selected. The browser file picker stays empty; clear any replacement file selected for a previously opened record. Show an explicit no-document message if the record has none. The edit response supplies the existing document URL/name without downloading the file.
 - Later rules may make it mandatory depending on `Motiu` and/or `Permís, llicència o absència ordinària`.
 
 ### Part M - Confirmació
@@ -658,6 +663,10 @@ The intro/description appears only on the first screen. It must not be shown aft
 After a successful submission, redirect the web page to `https://agora.xtec.cat/sesernestlluch-cunit/`.
 
 When editing an existing row, stored child rows from `absences` and `recovery` must be loaded and rendered in the form. `absences` rows must be used as the schedule fallback when the live schedule list has not been freshly regenerated yet.
+
+Opening an existing absence must reveal the edit screen before refreshing the live timetable, without requiring the user to reselect its date or time range. Clear timetable state from previously opened records, restore saved time boundaries in canonical `HH:mm`, and load the selected teacher/date timetable automatically. Preserve saved student work and no-cover flags on matching rows. Use saved child rows only when the live lookup fails or returns no rows, and only for the original teacher/date. Normalize legacy saved class times such as `9:00` before filtering partial-day intervals. Ignore timetable responses after the teacher, date, record, or one-day edit screen has changed. A fallback notice must not overwrite a time-range error or claim that classes are visible when the interval has none.
+
+Restore saved `Feina` and no-cover flags into the timetable model before rendering the controls. Match source row IDs first; if the cache IDs changed, allow an unambiguous match on normalized time, subject and group set. Range re-renders must preserve current user edits, including an explicitly cleared work field or disabled no-cover flag.
 
 ## Deferred Work
 

@@ -113,8 +113,9 @@ Do not read selected schedules or recovery items from JSON fields in `form_data`
 The page uses a fixed viewport layout: title, filters, table headers, and the bottom `Gestionat` action remain visible while the table content scrolls.
 
 Teacher and absence-date filters run client-side. The date filter uses a custom Catalan calendar with Monday as the first weekday.
+Previous-day and next-day arrows below the date picker update the date filter immediately. They are disabled when no date is selected, including after clearing the date.
 
-The main table shows the multi-day and full-day indicators, the total absence hours, and the start/return boundaries for partial one-day absences. `Motiu` is not shown in the main table, but remains visible and editable in the record popup.
+The main table shows the teacher's `DNI` (from `Llista` column I) between `Professor` and `Més d’un dia`, and `Motiu` between `Context` and `Atri?`. It also shows the multi-day and full-day indicators, the total absence hours, and the start/return boundaries for partial one-day absences. `Motiu` remains visible and editable in the record popup.
 
 Clicking a table row opens the complete parent record and its related `recovery` rows. Reads and writes resolve the parent by stable `form_data.row_id`; they must never treat `row_id` as a physical spreadsheet row number. The edit flow protects `row_id`, `created_at`, and `updated_at`, and replaces the selected parent's recovery rows under a script lock.
 

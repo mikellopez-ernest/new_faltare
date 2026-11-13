@@ -147,12 +147,14 @@ The admin table must show:
 | Select | Checkbox to select the row locally. |
 | `Data absència` | `absence_date` |
 | `Professor` | Resolve `teacher_code` through `Dades de professors -> Llista`; fallback to stored `absence_teacher_name`. |
+| `DNI` | Teacher identity document from `Dades de professors -> Llista` column I, resolved by `teacher_code`; blank when no teacher match exists. |
 | `Més d’un dia` | `Sí` when `multi_day` is true; otherwise `No`. |
 | `Dia sencer` | Empty for multi-day absences. For one-day absences, `Sí` when `full_day` is true and `No` when false. A blank legacy one-day value is treated as `Sí`. |
 | `Hores` | `hores`, independently of whether the absence is recoverable. |
 | `Hora inici` | `absence_start_time` |
 | `Hora tornada` | `return_time` |
 | `Context` | `context` |
+| `Motiu` | `Faltaré -> form_data` column N (`motiu`). |
 | `Atri?` | `No` if `permis_llicencia_absencia` is `Absència ordinària`; `Sí` otherwise. |
 | `Document` | Link from `document_file_url`. |
 
@@ -172,6 +174,7 @@ Filters appear above the table.
 - Displays dates as `dd/mm/yyyy`.
 - Week starts on Monday and weekday labels are Catalan (`Dl` through `Dg`).
 - Matches `form_data.absence_date` exactly after normalizing the stored date.
+- Two arrow buttons below the picker move the selected date one calendar day backward or forward and immediately update the client-side filter. They include weekends and handle month/year boundaries. Both buttons are disabled until a date is selected and become disabled again when the date is cleared. Opening the calendar after a day change shows the selected date's month.
 
 ### Gestionades
 

@@ -670,7 +670,8 @@ function filterCoverableAbsences_(rows) {
 }
 
 function isGuardDutyAbsence_(row) {
-  return normalizeKey_(row.subjectCode) === 'GUARDIA' || normalizeKey_(row.subject) === 'GUARDIA';
+  return ['GUARDIA', 'GUARDIA_PATI'].indexOf(normalizeKey_(row.subjectCode)) !== -1 ||
+    ['GUARDIA', 'GUARDIA_PATI'].indexOf(normalizeKey_(row.subject)) !== -1;
 }
 
 function buildTeachersByCode_(sheetData) {

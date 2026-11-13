@@ -322,8 +322,8 @@ function submitAttendanceForm(payload) {
     absence_date: payload.absenceDate,
     multi_day: payload.multiDay,
     full_day: payload.multiDay === 'No' ? payload.fullDay : '',
-    absence_start_time: payload.multiDay === 'No' && payload.fullDay === 'No' ? payload.absenceStartTime : '',
-    return_time: payload.multiDay === 'No' && payload.fullDay === 'No' ? payload.returnTime : '',
+    absence_start_time: payload.multiDay === 'No' ? payload.absenceStartTime : '',
+    return_time: payload.multiDay === 'No' ? payload.returnTime : '',
     reincorporation_date: payload.reincorporationDate || '',
     multi_day_student_work: payload.multiDayStudentWork || '',
     motiu: payload.motiu,
@@ -542,6 +542,10 @@ function getSubmissionForEdit(rowId, teacherEmail) {
     hores: rowObject.hores,
     horesARecuperar: rowObject.hores_a_recuperar,
     recoveryItems: loadRecoveryItemsForRow_(recoverySheet, record.rowId),
+    documentFile: {
+      url: rowObject.document_file_url || '',
+      name: rowObject.document_file_name || '',
+    },
     permisLlicenciaAbsencia: rowObject.permis_llicencia_absencia,
     confirmationOk: parseBoolean_(rowObject.confirmation_ok),
   };
@@ -1200,6 +1204,12 @@ function validateSubmission_(payload) {
 
       singleDayScheduleCount = intervalItems.length;
     }
+
+    if (payload.fullDay === 'Sí') {
+      const boundaries = getFullDayBoundaries_(schedule.items);
+      payload.absenceStartTime = boundaries.absenceStartTime;
+      payload.returnTime = boundaries.returnTime;
+    }
   }
 
   required_(payload.motiu, 'Cal indicar el motiu.');
@@ -1245,6 +1255,24 @@ function validateSubmission_(payload) {
   }
 }
 
+function getFullDayBoundaries_(items) {
+  if (!items.length) {
+    throw new Error('No es poden calcular les hores de tota la jornada sense horari.');
+  }
+
+  const slots = items.map(function(item) { return Number(item.slot); });
+  if (slots.some(function(slot) { return !Number.isInteger(slot) || !SCHEDULE_SLOT_TIMES[String(slot)]; })) {
+    throw new Error('L\'horari conté una franja no vàlida.');
+  }
+
+  const firstSlot = Math.min.apply(null, slots);
+  const lastSlot = Math.max.apply(null, slots);
+  return {
+    absenceStartTime: SCHEDULE_SLOT_TIMES[String(firstSlot)],
+    returnTime: lastSlot === 12 ? '21:30' : SCHEDULE_SLOT_TIMES[String(lastSlot + 1)],
+  };
+}
+
 function validatePartialDayRange_(startTime, returnTime) {
   required_(startTime, 'Cal indicar l\'hora de Des de.');
   required_(returnTime, 'Cal indicar l\'hora de Torno a les.');
@@ -1285,8 +1313,8 @@ function filterScheduleItemsForAbsence_(items, fullDay, startTime, returnTime) {
 
 function shouldCreateAbsenceRegistryItem_(item) {
   return Boolean(item.hasGroup) ||
-    normalizeKey_(item.subjectName) === 'guardia' ||
-    normalizeKey_(item.subjectCode) === 'guardia';
+    ['guardia', 'guardia_pati'].indexOf(normalizeKey_(item.subjectName)) !== -1 ||
+    ['guardia', 'guardia_pati'].indexOf(normalizeKey_(item.subjectCode)) !== -1;
 }
 
 function hasSameScheduleItems_(submittedItems, expectedItems) {
